@@ -388,7 +388,11 @@
                 );
             }
 
-            const agents = data.agents || {};
+            const agents = data.agents || {
+                enterprise: data.enterprise,
+                personal: data.personal,
+                cybersecurity: data.cybersecurity
+            };
 
             const agentNames = {
                 enterprise: "Enterprise AI",

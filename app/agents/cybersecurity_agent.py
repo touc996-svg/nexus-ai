@@ -1,12 +1,11 @@
 
-from openai import OpenAI
-from app.core.config import settings
+from app.core.llm import client, MODEL
 
 
 class CybersecurityAgent:
 
     def __init__(self):
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.client = client
 
     def run(self, message: str):
 
@@ -15,7 +14,7 @@ class CybersecurityAgent:
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=MODEL,
                 messages=[
                     {
                         "role": "system",

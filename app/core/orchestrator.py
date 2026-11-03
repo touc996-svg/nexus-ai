@@ -4,6 +4,7 @@ from app.agents.personal_agent import personal_agent
 from app.agents.cybersecurity_agent import cybersecurity_agent
 from app.security.guardrails import guardrails
 from app.core.decision_engine import decision_engine
+from app.core.activity import activity_logger
 
 
 class NexusOrchestrator:
@@ -29,23 +30,62 @@ class NexusOrchestrator:
             "status": "active"
         }
 
-    def run_agent(self, domain, message):
-        valid, reason = guardrails.validate(message)
+    def run_agent(self, domain, message, internal=False):
+        from time import perf_counter
+
+        started = perf_counter()
+        agent_name = domain.lower()
+
+        limit = (
+            guardrails.MAX_INTERNAL_CONTEXT_LENGTH
+            if internal else guardrails.MAX_MESSAGE_LENGTH
+        )
+        valid, reason = guardrails.validate(message, max_length=limit)
 
         if not valid:
+            activity_logger.record(
+                agent_name, "rejected",
+                round((perf_counter() - started) * 1000),
+                reason
+            )
             return {"error": reason}
 
-        agent = self.agents.get(domain.lower())
+        agent = self.agents.get(agent_name)
 
         if not agent:
+            activity_logger.record(
+                agent_name, "rejected",
+                round((perf_counter() - started) * 1000),
+                "Agent not found"
+            )
             return {
                 "error": "Agent not found",
                 "available_agents": list(self.agents.keys())
             }
 
         try:
-            return agent.run(message)
+            result = agent.run(message)
+
+            failed = (
+                isinstance(result, dict)
+                and ("error" in result or result.get("status") == "failed")
+            )
+
+            activity_logger.record(
+                agent_name,
+                "failed" if failed else "success",
+                round((perf_counter() - started) * 1000),
+                str(result.get("error")) if failed else None
+            )
+
+            return result
+
         except Exception as e:
+            activity_logger.record(
+                agent_name, "failed",
+                round((perf_counter() - started) * 1000),
+                str(e)
+            )
             return {
                 "error": str(e),
                 "status": "failed"
@@ -73,19 +113,19 @@ class NexusOrchestrator:
         )
 
         results["personal"] = self.run_agent(
-            "personal", personal_input
+            "personal", personal_input, internal=True
         )
 
         # Step 3: Cybersecurity assessment
         security_input = (
             f"Original request: {message}\n"
-            f"Enterprise analysis: {results['enterprise']}\n"
-            f"Personal recommendations: {results['personal']}\n"
+            f"Enterprise analysis: {str(results['enterprise'])[:4000]}\n"
+            f"Personal recommendations: {str(results['personal'])[:4000]}\n"
             "Identify security risks and defensive recommendations."
         )
 
         results["cybersecurity"] = self.run_agent(
-            "cybersecurity", security_input
+            "cybersecurity", security_input, internal=True
         )
 
         # Step 4: Generate unified decision report

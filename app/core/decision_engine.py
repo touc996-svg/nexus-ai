@@ -154,7 +154,7 @@ class NexusDecisionEngine:
                     "category": category,
                     "severity": rule["severity"],
                     "indicators": matches,
-                    "status": "requires_review"
+                    "status": "potential"
                 })
 
         return risks
@@ -204,28 +204,39 @@ class NexusDecisionEngine:
 
     def _prioritize(self, risks, failures, contradictions):
 
-        severity_order = {
-            "critical": 1,
-            "high": 2,
-            "medium": 3,
-            "low": 4
+        status_priority = {
+            "potential": "medium",
+            "requires_review": "high",
+            "verified_incident": "critical"
         }
 
         priorities = []
 
-        ordered_risks = sorted(
-            risks,
-            key=lambda risk: severity_order.get(
-                risk["severity"], 5
+        for risk in risks:
+            status = risk.get("status", "potential")
+            priority = status_priority.get(
+                status,
+                risk.get("severity", "medium")
             )
-        )
 
-        for risk in ordered_risks:
-            priorities.append({
-                "priority": risk["severity"],
-                "action": (
+            if status == "verified_incident":
+                action = (
+                    f"Respond immediately to the verified "
+                    f"{risk['category']} incident."
+                )
+            elif status == "requires_review":
+                action = (
                     f"Investigate {risk['category']} risk indicators."
                 )
+            else:
+                action = (
+                    f"Monitor and evaluate potential "
+                    f"{risk['category']} risks."
+                )
+
+            priorities.append({
+                "priority": priority,
+                "action": action
             })
 
         if failures:
@@ -258,11 +269,12 @@ class NexusDecisionEngine:
 
         if any(
             risk["severity"] == "critical"
+            and risk["status"] == "verified_incident"
             for risk in risks
         ):
             return {
                 "outcome": "HIGH_RISK",
-                "reason": "Critical risk indicators require investigation."
+                "reason": "A verified critical incident requires immediate investigation."
             }
 
         if contradictions:
@@ -274,7 +286,7 @@ class NexusDecisionEngine:
         if risks:
             return {
                 "outcome": "CAUTION",
-                "reason": "Risk indicators require further evaluation."
+                "reason": "Potential risk indicators were detected and require evaluation."
             }
 
         return {
