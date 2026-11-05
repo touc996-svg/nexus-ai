@@ -30,7 +30,7 @@ class NexusOrchestrator:
             "status": "active"
         }
 
-    def run_agent(self, domain, message, internal=False):
+    def run_agent(self, domain, message, internal=False, user_profile=None):
         from time import perf_counter
 
         started = perf_counter()
@@ -64,7 +64,10 @@ class NexusOrchestrator:
             }
 
         try:
-            result = agent.run(message)
+            if agent_name == "personal":
+                result = agent.run(message, user_profile=user_profile)
+            else:
+                result = agent.run(message)
 
             failed = (
                 isinstance(result, dict)
@@ -117,11 +120,29 @@ class NexusOrchestrator:
         )
 
         # Step 3: Cybersecurity assessment
+
+        enterprise_result = results["enterprise"]
+        personal_result = results["personal"]
+
+        enterprise_context = (
+            enterprise_result.get("response", "")
+            if isinstance(enterprise_result, dict)
+            else str(enterprise_result)
+        )
+
+        personal_context = (
+            personal_result.get("response", "")
+            if isinstance(personal_result, dict)
+            else str(personal_result)
+        )
+
         security_input = (
-            f"Original request: {message}\n"
-            f"Enterprise analysis: {str(results['enterprise'])[:4000]}\n"
-            f"Personal recommendations: {str(results['personal'])[:4000]}\n"
-            "Identify security risks and defensive recommendations."
+            f"Original request: {message}\\n\\n"
+            f"Enterprise findings:\\n{enterprise_context[:1500]}\\n\\n"
+            f"Personal recommendations:\\n{personal_context[:1500]}\\n\\n"
+            "Identify security risks, assess potential threats, "
+            "and recommend defensive actions. "
+            "Distinguish potential risks from verified incidents."
         )
 
         results["cybersecurity"] = self.run_agent(

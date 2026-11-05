@@ -11,6 +11,7 @@ from app.core.decision_engine import decision_engine
 from app.core.memory import memory
 from app.core.router import router
 from app.core.activity import activity_logger
+from app.core.conversation import conversation_engine
 
 
 app = FastAPI(
@@ -33,6 +34,19 @@ class MemoryRequest(BaseModel):
     role: str
     content: str
 
+
+class ProfileRequest(BaseModel):
+    goals: list | None = None
+    skills: dict | None = None
+    preferences: dict | list | str | None = None
+    professional_background: str | None = None
+    career_direction: str | None = None
+
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str = 'default'
+    user_id: str | None = None
 
 # DASHBOARD
 
@@ -129,6 +143,44 @@ def delete_memory(session_id: str):
     }
 
 
+# USER PROFILE / PERSONALIZATION
+
+@app.get("/profile/{user_id}")
+def get_profile(user_id: str):
+    profile = memory.get_profile(user_id)
+
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    return profile
+
+
+@app.put("/profile/{user_id}")
+def update_profile(user_id: str, request: ProfileRequest):
+    updates = request.model_dump(exclude_unset=True)
+
+    if not updates:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one profile field is required"
+        )
+
+    try:
+        return memory.update_profile(user_id, updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.delete("/profile/{user_id}")
+def delete_profile(user_id: str):
+    deleted = memory.delete_profile(user_id)
+    return {
+        "user_id": user_id,
+        "deleted": deleted,
+        "status": "deleted" if deleted else "not_found"
+    }
+
+
 # AGENT STATUS
 
 @app.get("/agents/{domain}")
@@ -196,6 +248,135 @@ def auto_route(request: AgentRequest):
         "result": result,
         "status": "completed"
     }
+
+
+
+
+from app.services.profile_learning import profile_learning
+
+# CONVERSATION INTELLIGENCE
+
+@app.post("/chat")
+def chat(request: ChatRequest):
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    history = memory.get_history(request.session_id)
+
+    saved_profile = (
+        memory.get_profile(request.user_id)
+        if request.user_id else None
+    )
+    user_profile = (
+        saved_profile.get("profile", {})
+        if saved_profile else {}
+    )
+
+    if request.user_id:
+        profile_updates = profile_learning.extract_updates(
+            request.message,
+            user_profile
+        )
+
+        if profile_updates:
+            user_profile = profile_learning.merge_updates(
+                user_profile,
+                profile_updates
+            )
+            memory.update_profile(request.user_id, user_profile)
+
+    knowledge_context = []
+    try:
+        knowledge_context = rag.search(
+            query=request.message,
+            user_id=request.user_id or "system",
+            limit=5
+        )
+    except Exception:
+        knowledge_context = []
+
+    agent_message = request.message
+    if knowledge_context:
+        agent_message += "\n\nRelevant knowledge from NEXUS:\n"
+        agent_message += "\n".join(item.get("text", "") for item in knowledge_context)
+
+    understanding = conversation_engine.understand(
+        request.message,
+        history,
+        user_profile=user_profile,
+        knowledge_context=knowledge_context
+    )
+
+    memory.add_message(request.session_id, "user", request.message)
+
+    intent = understanding["intent_type"]
+
+    print(
+        "[NEXUS RAG DEBUG]",
+        {
+            "user_id": request.user_id,
+            "results": len(knowledge_context),
+            "scores": [item.get("score") for item in knowledge_context],
+            "initial_intent": intent
+        },
+        flush=True
+    )
+
+    # Route clarification requests when relevant knowledge is retrieved.
+    if intent == "clarification" and knowledge_context:
+        intent = "agent_task"
+        understanding["intent_type"] = "agent_task"
+        understanding["agent"] = "cybersecurity"
+        understanding["understood_request"] = (
+            "Relevant knowledge retrieved; routing to cybersecurity agent."
+        )
+
+    if intent == "agent_task":
+        agent_name = understanding["agent"]
+        result = nexus.run_agent(
+            agent_name,
+            agent_message,
+            user_profile=user_profile
+        )
+
+        response = (
+            result.get("response") or result.get("error") or str(result)
+            if isinstance(result, dict) else str(result)
+        )
+
+        status = (
+            "failed"
+            if isinstance(result, dict) and (
+                "error" in result or result.get("status") == "failed"
+            )
+            else "completed"
+        )
+
+        output = {
+            "session_id": request.session_id,
+            "intent": understanding,
+            "agent": agent_name,
+            "result": result,
+            "response": response,
+            "status": status
+        }
+    else:
+        response = (
+            understanding.get("clarifying_question")
+            if intent == "clarification"
+            else understanding.get("response")
+        ) or "Could you clarify what you need?"
+
+        output = {
+            "session_id": request.session_id,
+            "intent": understanding,
+            "agent": None,
+            "response": response,
+            "status": "completed"
+        }
+
+    memory.add_message(request.session_id, "assistant", output["response"])
+    return output
 
 
 # AGENT ACTIVITY HISTORY
@@ -347,3 +528,10 @@ def get_activity_summary():
         **activity_logger.get_summary(),
         "status": "success"
     }
+
+
+from app.api.knowledge import router as knowledge_router
+app.include_router(knowledge_router)
+
+
+from app.services.rag import rag

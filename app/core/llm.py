@@ -1,6 +1,11 @@
+import os
 from openai import OpenAI
 
-OLLAMA_BASE_URL = "http://localhost:11434/v1"
+OLLAMA_BASE_URL = os.getenv(
+    "OLLAMA_BASE_URL",
+    "http://localhost:11434/v1"
+)
+
 MODEL = "qwen3:1.7b"
 
 client = OpenAI(

@@ -298,6 +298,7 @@
         <label for="agent">Choose your AI agent</label>
 
         <select id="agent">
+            <option value="chat" selected>NEXUS Auto — Conversation Intelligence</option>
             <option value="enterprise">Enterprise AI</option>
             <option value="personal">Personal AI</option>
             <option value="cybersecurity">Cybersecurity AI</option>
@@ -454,16 +455,21 @@
         resultArea.appendChild(loading);
 
         try {
-            const endpoint = agent === "team"
-                ? "/team"
-                : `/agents/${agent}`;
+            const endpoint = agent === "chat"
+                ? "/chat"
+                : agent === "team"
+                    ? "/team"
+                    : `/agents/${agent}`;
 
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ message })
+                body: JSON.stringify({
+                    message,
+                    ...(agent === "chat" ? { session_id: "nexus-dashboard" } : {})
+                })
             });
 
             const data = await response.json();
