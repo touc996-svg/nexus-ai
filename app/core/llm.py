@@ -41,12 +41,8 @@ class DemoCompletions:
                 "understood_request": request
             })
 
-        elif "profile" in system_lower and any(
-            word in system_lower
-            for word in ("extract", "learn", "update")
-        ):
+        elif "return only valid json in this exact structure" in system_lower and "career_direction" in system_lower:
             content = "{}"
-
         elif "cybersecurity" in system_lower:
             content = (
                 "[DEMO SIMULATION] Cybersecurity assessment: "
