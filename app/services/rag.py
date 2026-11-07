@@ -20,10 +20,18 @@ class NexusRAG:
     ).replace("/v1", "").rstrip("/")
 
     def __init__(self):
-        self.client = QdrantClient(
-            url=os.getenv("QDRANT_URL", "http://localhost:6333"),
-            timeout=30
-        )
+        self.demo_mode = os.getenv(
+            "NEXUS_DEMO_MODE", "false"
+        ).lower() in {"1", "true", "yes", "on"}
+
+        if self.demo_mode:
+            self.client = QdrantClient(location=":memory:")
+        else:
+            self.client = QdrantClient(
+                url=os.getenv("QDRANT_URL", "http://localhost:6333"),
+                timeout=30
+            )
+
         self._ensure_collection()
 
     def _ensure_collection(self):
@@ -103,6 +111,15 @@ class NexusRAG:
         if not text.strip():
             raise ValueError("Document contains no extractable text")
 
+        if self.demo_mode:
+            return {
+                "status": "disabled",
+                "reason": "Knowledge ingestion is disabled in public demo mode.",
+                "source": source,
+                "chunks_ingested": 0,
+                "collection": self.COLLECTION
+            }
+
         chunks = self.chunk_text(text)
         points = []
 
@@ -172,6 +189,9 @@ class NexusRAG:
 
         if not 1 <= limit <= 50:
             raise ValueError("limit must be between 1 and 50")
+
+        if self.demo_mode:
+            return []
 
         vector = self.embed(query)
 
