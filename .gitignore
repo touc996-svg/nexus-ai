@@ -26,3 +26,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# Local AI benchmark reports
+artifacts/agent_evaluation_*.json

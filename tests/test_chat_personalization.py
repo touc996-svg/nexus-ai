@@ -31,6 +31,7 @@ class TestChatPersonalizationFlow(unittest.TestCase):
         }
 
         with (
+            patch.object(main, "DEMO_MODE", False),
             patch.object(
                 main.memory, "get_history", return_value=[]
             ),

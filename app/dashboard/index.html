@@ -338,6 +338,18 @@
     const resultArea = document.getElementById("results");
     const sendButton = document.getElementById("sendButton");
 
+    function getDashboardSessionId() {
+        const storageKey = "nexus-ai-session-id";
+        let sessionId = sessionStorage.getItem(storageKey);
+        if (!sessionId) {
+            sessionId = "nexus-" + crypto.randomUUID();
+            sessionStorage.setItem(storageKey, sessionId);
+        }
+        return sessionId;
+    }
+
+    const dashboardSessionId = getDashboardSessionId();
+
     function createResultCard(title, content, isFinal = false) {
         const card = document.createElement("div");
         card.className = isFinal
@@ -468,7 +480,7 @@
                 },
                 body: JSON.stringify({
                     message,
-                    ...(agent === "chat" ? { session_id: "nexus-dashboard" } : {})
+                    ...(agent === "chat" ? { session_id: dashboardSessionId } : {})
                 })
             });
 
