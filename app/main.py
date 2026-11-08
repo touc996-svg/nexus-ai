@@ -597,3 +597,8 @@ from app.services.rag import rag
 
 from app.api.observability import router as observability_router
 app.include_router(observability_router)
+
+from app.api.health import router as health_router
+from app.security.hardening import install_security
+app.include_router(health_router)
+install_security(app)

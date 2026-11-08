@@ -187,3 +187,27 @@ python scripts/evaluate_agents.py
 ```
 
 The benchmark reports response availability, expected-signal coverage, pass rate, average latency and p95 latency. Signal coverage and response length are deterministic heuristics, not a human-quality judgement or ground-truth accuracy metric. When `NEXUS_DEMO_MODE=true`, it measures deterministic demo responses, not live model quality.
+
+
+## Production Security and Deployment
+
+Batch 3 adds API-key authentication, request-size limits, process-local sliding-window rate limiting, explicit CORS origins, security response headers, request IDs, dependency-aware readiness checks, and a non-root Docker runtime.
+
+### API authentication
+
+- In `APP_ENV=production` with `NEXUS_DEMO_MODE=false`, `NEXUS_API_KEY` is required at startup.
+- Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
+- `/health/live` and `/health/ready` remain public for platform health checks. The root dashboard remains publicly accessible.
+- In public demo mode, API-key auth is disabled by design, but request throttling remains active and shared activity-history endpoints are blocked.
+- Generate a secret locally with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Store it in your hosting provider's secret manager; never commit `.env` or a real key.
+
+### Runtime controls
+
+Configure `NEXUS_RATE_LIMIT_PER_MINUTE`, `NEXUS_MAX_REQUEST_BYTES` (for requests with a declared `Content-Length`), and `NEXUS_CORS_ORIGINS` through environment variables. CORS is disabled for cross-origin browser traffic unless exact trusted origins are configured. The rate limiter is in-memory and per process; for multiple workers or replicas, enforce shared limits at an API gateway or reverse proxy. NEXUS does not trust client-supplied `X-Forwarded-For` for rate-limit identity.
+
+### Health checks and containers
+
+- `GET /health/live` reports process liveness.
+- `GET /health/ready` checks Ollama chat/embedding models, Qdrant and SQL memory in non-demo mode; it returns HTTP 503 when a required dependency is unavailable.
+- The Docker image runs as an unprivileged `nexus` user and includes a liveness health check.
+- Render is configured to use `/health/live`. For a real production deployment, use managed persistent SQL storage and configure reachable Ollama/Qdrant services; the public Render demo remains deterministic and stateless.
