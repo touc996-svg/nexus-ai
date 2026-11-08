@@ -146,3 +146,44 @@ The project is under active development. Authentication and user-level authoriza
 ## Disclaimer
 
 NEXUS AI is a development and portfolio project. It is not currently intended for production use or as a substitute for professional cybersecurity analysis.
+
+
+## RAG and Ollama Operations
+
+NEXUS uses Ollama for chat completions and embeddings, with Qdrant for per-user vector retrieval.
+
+Example local services:
+```bash
+ollama serve
+ollama pull qwen3:1.7b
+ollama pull nomic-embed-text
+docker run -d --name nexus-qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant
+```
+
+Configure the models and vector dimensions in `.env` using `.env.example`. The configured embedding dimension must match the embedding model and the existing Qdrant collection. If changing vector dimensions, create a new collection and re-index; NEXUS refuses to silently mix vector sizes.
+
+Knowledge endpoints:
+- `POST /knowledge/ingest`
+- `POST /knowledge/search`
+- `GET /knowledge/sources`
+- `DELETE /knowledge/sources/{source_id}`
+
+## Agent Collaboration and Memory
+
+The team workflow runs Enterprise → Personal → Cybersecurity. Each agent receives a bounded text summary from prior agents rather than an unbounded serialized Python dictionary. The response includes per-agent duration, output length, status and a basic usability flag.
+
+SQLite memory retains up to the configured per-session maximum but supplies only the latest `NEXUS_MEMORY_HISTORY_LIMIT` messages to conversation intelligence. Nested profile dictionaries are merged so adding one skill does not erase other saved skills.
+
+## Observability and Evaluation
+
+- `GET /system/llm-health` checks Ollama connectivity and configured model availability.
+- `GET /system/rag-health` checks the Qdrant collection and embedding model status.
+- `GET /system/memory-health` checks SQLite memory availability.
+- `GET /system/evaluation/latest` returns the last saved agent benchmark.
+
+Run the repeatable six-case benchmark against the configured agents:
+```bash
+python scripts/evaluate_agents.py
+```
+
+The benchmark reports response availability, expected-signal coverage, pass rate, average latency and p95 latency. Signal coverage and response length are deterministic heuristics, not a human-quality judgement or ground-truth accuracy metric. When `NEXUS_DEMO_MODE=true`, it measures deterministic demo responses, not live model quality.

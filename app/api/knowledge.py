@@ -73,6 +73,33 @@ async def ingest_document(
         await file.close()
 
 
+@router.get("/sources")
+def list_knowledge_sources(user_id: str = "system"):
+    try:
+        return {"user_id": user_id, "sources": rag.list_sources(user_id=user_id)}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Knowledge source listing failed: {type(exc).__name__}"
+        ) from exc
+
+
+@router.delete("/sources/{source_id}")
+def delete_knowledge_source(source_id: str, user_id: str = "system"):
+    try:
+        deleted = rag.delete_source(source_id=source_id, user_id=user_id)
+        return {
+            "source_id": source_id,
+            "deleted": deleted,
+            "status": "deleted" if deleted else "not_found_or_disabled"
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Knowledge source deletion failed: {type(exc).__name__}"
+        ) from exc
+
+
 @router.post("/search")
 def search_knowledge(request: KnowledgeSearchRequest):
     try:

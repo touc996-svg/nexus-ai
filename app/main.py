@@ -594,3 +594,6 @@ app.include_router(knowledge_router)
 
 
 from app.services.rag import rag
+
+from app.api.observability import router as observability_router
+app.include_router(observability_router)
