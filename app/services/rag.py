@@ -1,6 +1,7 @@
 import hashlib
 import math
 import os
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,20 +47,40 @@ class NexusRAG:
             else float(os.getenv("NEXUS_RAG_MIN_SCORE", "0.15"))
         )
 
-        if client is not None:
-            self.client = client
-        elif self.demo_mode:
-            self.client = QdrantClient(location=":memory:")
-        else:
-            self.client = QdrantClient(
-                url=os.getenv("QDRANT_URL", "http://localhost:6333"),
-                timeout=30
-            )
-        self._ensure_collection()
+        # Qdrant initialization is deferred until the first client access.
+        self._client = client
+        self._client_ready = False
+        self._client_lock = threading.Lock()
+
+    @property
+    def client(self):
+        if not self._client_ready:
+            with self._client_lock:
+                if not self._client_ready:
+                    if self._client is None:
+                        if self.demo_mode:
+                            self._client = QdrantClient(location=":memory:")
+                        else:
+                            self._client = QdrantClient(
+                                url=os.getenv(
+                                    "QDRANT_URL",
+                                    "http://localhost:6333"
+                                ),
+                                timeout=30
+                            )
+
+                    self._ensure_collection()
+                    self._client_ready = True
+
+        return self._client
 
     def _ensure_collection(self):
-        if not self.client.collection_exists(self.COLLECTION):
-            self.client.create_collection(
+        client = self._client
+        if client is None:
+            raise RuntimeError("Qdrant client has not been initialized.")
+
+        if not client.collection_exists(self.COLLECTION):
+            client.create_collection(
                 collection_name=self.COLLECTION,
                 vectors_config=models.VectorParams(
                     size=self.vector_size,
@@ -68,7 +89,7 @@ class NexusRAG:
             )
             return
 
-        collection = self.client.get_collection(self.COLLECTION)
+        collection = client.get_collection(self.COLLECTION)
         vectors = collection.config.params.vectors
         existing_size = getattr(vectors, "size", None)
         if existing_size and existing_size != self.vector_size:
