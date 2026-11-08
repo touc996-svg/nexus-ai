@@ -1,5 +1,18 @@
 
+import re
+
+
 class NexusDecisionEngine:
+
+    @staticmethod
+    def _contains_signal(text, phrase):
+        if phrase == "recommended":
+            return re.search(r"(?<!not )\brecommended\b", text) is not None
+        return re.search(
+            rf"(?<!\w){re.escape(phrase)}(?!\w)",
+            text
+        ) is not None
+
 
     RISK_RULES = {
         "security": {
@@ -183,20 +196,31 @@ class NexusDecisionEngine:
 
             found_first = [
                 name for name, content in sections.items()
-                if first in content
+                if self._contains_signal(content, first)
             ]
 
             found_second = [
                 name for name, content in sections.items()
-                if second in content
+                if self._contains_signal(content, second)
             ]
 
-            if found_first and found_second:
+            # A contradiction must come from different agent sources.
+            conflicting_sources = [
+                (left, right)
+                for left in found_first
+                for right in found_second
+                if left != right
+            ]
+
+            if conflicting_sources:
+                sources = sorted({
+                    source
+                    for pair in conflicting_sources
+                    for source in pair
+                })
                 contradictions.append({
                     "conflicting_signals": [first, second],
-                    "sources": list(set(
-                        found_first + found_second
-                    )),
+                    "sources": sources,
                     "status": "manual_review_required"
                 })
 

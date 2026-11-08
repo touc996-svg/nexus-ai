@@ -83,14 +83,16 @@ class NexusOrchestrator:
 
             return result
 
-        except Exception as e:
+        except Exception as exc:
+            error_type = type(exc).__name__
             activity_logger.record(
                 agent_name, "failed",
                 round((perf_counter() - started) * 1000),
-                str(e)
+                error_type
             )
             return {
-                "error": str(e),
+                "error": "Agent execution failed. Check server logs.",
+                "error_type": error_type,
                 "status": "failed"
             }
 

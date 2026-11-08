@@ -28,3 +28,12 @@ data may be lost when the service restarts or redeploys.
 ## Deployment
 Render reads the root render.yaml file.
 The public demo does not require an OpenAI API key.
+
+
+## Public demo privacy boundaries
+
+- Conversation requests are stateless in demo mode; chat history is not read from or written to SQLite.
+- Memory and user-profile CRUD endpoints return HTTP 403 in demo mode.
+- Knowledge ingestion and retrieval are disabled in demo mode.
+- The dashboard creates a distinct browser session identifier for local stateful development.
+- Live/local-AI mode is intended for trusted local development until authentication and per-user authorization are implemented.

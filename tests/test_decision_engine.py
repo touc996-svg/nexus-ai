@@ -47,3 +47,32 @@ def test_normal_assessment():
 
     assert report["status"] == "completed"
     assert report["decision"]["outcome"] == "PROCEED_WITH_REVIEW"
+
+
+
+def test_not_recommended_in_one_agent_is_not_a_contradiction():
+    engine = NexusDecisionEngine()
+    results = {
+        "enterprise": {"response": "This option is not recommended."},
+        "personal": {"response": "Review the costs."},
+        "cybersecurity": {"response": "No security concerns identified."},
+    }
+    report = engine.generate_report(results)
+    assert not any(
+        item["conflicting_signals"] == ["recommended", "not recommended"]
+        for item in report["contradictions"]
+    )
+
+
+def test_recommendation_conflict_across_agents_requires_review():
+    engine = NexusDecisionEngine()
+    results = {
+        "enterprise": {"response": "This option is recommended."},
+        "personal": {"response": "This option is not recommended."},
+        "cybersecurity": {"response": "No security concerns identified."},
+    }
+    report = engine.generate_report(results)
+    assert any(
+        item["conflicting_signals"] == ["recommended", "not recommended"]
+        for item in report["contradictions"]
+    )

@@ -19,9 +19,9 @@ The goal is to build a scalable foundation for intelligent automation and enterp
 - **Multi-Agent Orchestration:** Coordinates specialized agents through a unified workflow.
 - **Intelligent Routing:** Routes requests using keyword-based classification.
 - **Decision Engine:** Identifies risks, priorities, potential contradictions, and agent failures.
-- **Persistent Memory:** Stores conversation history using SQLite.
+- **Persistent Memory:** Stores local conversation history using SQLite; it is disabled in the public demo.
 - **API Interface:** Exposes platform functionality through FastAPI.
-- **Web Dashboard:** Provides an interface for interacting with agents.
+- **Web Dashboard:** Provides an interface for interacting with agents and uses a separate browser session identifier.
 
 ## Architecture
 
@@ -99,7 +99,7 @@ source .venv/bin/activate
 ### 3. Install dependencies
 
 ```bash
-pip install fastapi uvicorn sqlalchemy pydantic pytest
+pip install -r requirements.txt
 ```
 
 ### 4. Start the application
@@ -123,7 +123,7 @@ Run the automated test suite:
 python -m pytest -q
 ```
 
-Current verified result: **3 tests passed.**
+Run the current test suite with `python -m pytest -q`; it covers agent APIs, orchestration, conversation validation, personalization, decision rules, and demo-mode RAG.
 
 ## Engineering Focus
 
@@ -141,7 +141,7 @@ NEXUS AI is being developed with an emphasis on:
 
 The current implementation includes the FastAPI application, three specialized agents, orchestration, rule-based decision support, SQLite persistent memory, and automated tests.
 
-The project is under active development. Authentication, production-grade security, cloud deployment, and advanced semantic AI routing remain areas for future development.
+The project is under active development. Authentication and user-level authorization remain required before exposing live/local-AI mode to an untrusted network. The public demo is stateless and disables memory/profile CRUD; knowledge ingestion and retrieval remain disabled there.
 
 ## Disclaimer
 
