@@ -42,6 +42,9 @@ class UserProfile(Base):
 
 
 class NexusMemory:
+    MAX_PROFILE_JSON_CHARS = 20_000
+    MAX_PROFILE_LIST_ITEMS = 100
+    MAX_PROFILE_TEXT_CHARS = 4_000
     PROFILE_FIELDS = {
         "goals", "skills", "preferences",
         "professional_background", "career_direction"
@@ -64,14 +67,50 @@ class NexusMemory:
             init_db()
 
     @staticmethod
-    def _validate_session_id(session_id):
-        if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 128:
-            raise ValueError("session_id must contain 1 to 128 characters")
+    def _validate_identifier(value, field_name):
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+            or len(value) > 128
+            or any(ord(char) < 32 for char in value)
+        ):
+            raise ValueError(f"{field_name} must contain 1 to 128 printable characters")
 
-    @staticmethod
-    def _validate_user_id(user_id):
-        if not isinstance(user_id, str) or not user_id.strip() or len(user_id) > 128:
-            raise ValueError("user_id must contain 1 to 128 characters")
+    @classmethod
+    def _validate_session_id(cls, session_id):
+        cls._validate_identifier(session_id, "session_id")
+
+    @classmethod
+    def _validate_user_id(cls, user_id):
+        cls._validate_identifier(user_id, "user_id")
+
+    @classmethod
+    def _validate_profile_updates(cls, updates):
+        if not isinstance(updates, dict):
+            raise ValueError("Profile updates must be a dictionary.")
+        invalid_fields = set(updates) - cls.PROFILE_FIELDS
+        if invalid_fields:
+            raise ValueError(f"Unsupported profile fields: {sorted(invalid_fields)}")
+        for field, value in updates.items():
+            if field == "goals":
+                if not isinstance(value, list) or len(value) > cls.MAX_PROFILE_LIST_ITEMS:
+                    raise ValueError("goals must be a list with at most 100 items")
+                if any(not isinstance(item, str) or len(item) > 500 for item in value):
+                    raise ValueError("each goal must be text of at most 500 characters")
+            elif field in {"skills", "preferences"}:
+                if not isinstance(value, (dict, list, str)):
+                    raise ValueError(f"{field} must contain JSON-compatible profile data")
+                if isinstance(value, str) and len(value) > cls.MAX_PROFILE_TEXT_CHARS:
+                    raise ValueError(f"{field} exceeds the profile text limit")
+            elif field in {"professional_background", "career_direction"}:
+                if not isinstance(value, str) or len(value) > cls.MAX_PROFILE_TEXT_CHARS:
+                    raise ValueError(f"{field} must be text of at most 4000 characters")
+        try:
+            encoded = json.dumps(updates, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise ValueError("Profile data must be valid JSON values") from exc
+        if len(encoded) > cls.MAX_PROFILE_JSON_CHARS:
+            raise ValueError("Profile data exceeds the 20000-character limit")
 
     @staticmethod
     def _merge_profile(current: dict, updates: dict) -> dict:
@@ -184,11 +223,7 @@ class NexusMemory:
 
     def update_profile(self, user_id, updates):
         self._validate_user_id(user_id)
-        if not isinstance(updates, dict):
-            raise ValueError("Profile updates must be a dictionary.")
-        invalid_fields = set(updates) - self.PROFILE_FIELDS
-        if invalid_fields:
-            raise ValueError(f"Unsupported profile fields: {sorted(invalid_fields)}")
+        self._validate_profile_updates(updates)
 
         db: Session = self.session_factory()
         try:
@@ -204,7 +239,8 @@ class NexusMemory:
             else:
                 current_data = json.loads(profile.profile_data)
             current_data = self._merge_profile(current_data, updates)
-            profile.profile_data = json.dumps(current_data, ensure_ascii=False)
+            self._validate_profile_updates(current_data)
+            profile.profile_data = json.dumps(current_data, ensure_ascii=False, allow_nan=False)
             profile.updated_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(profile)

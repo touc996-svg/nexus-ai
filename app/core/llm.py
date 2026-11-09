@@ -116,7 +116,7 @@ def get_ollama_health(timeout: float = 3.0) -> dict:
         chat_available = is_available(MODEL)
         embedding_available = is_available(EMBEDDING_MODEL)
         return {
-            "status": "online" if chat_available else "model_missing",
+            "status": "online" if chat_available and embedding_available else "degraded",
             "provider": "ollama",
             "reachable": True,
             "chat_model": MODEL,

@@ -23,7 +23,7 @@ from starlette.requests import Request
 
 logger = logging.getLogger("nexus.security")
 PUBLIC_PATHS = {"/", "/health/live", "/health/ready"}
-DEMO_ACTIVITY_PATHS = {"/activity", "/dashboard/activity"}
+DEMO_ACTIVITY_PATHS = {"/activity", "/activity/summary", "/dashboard/activity"}
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -86,9 +86,10 @@ def load_security_settings() -> SecuritySettings:
 class SlidingWindowRateLimiter:
     """Simple per-process sliding-window limiter keyed by client address."""
 
-    def __init__(self, limit: int, window_seconds: int = 60):
+    def __init__(self, limit: int, window_seconds: int = 60, max_keys: int = 10_000):
         self.limit = limit
         self.window_seconds = window_seconds
+        self.max_keys = max(100, max_keys)
         self._events: dict[str, Deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
 
@@ -96,6 +97,21 @@ class SlidingWindowRateLimiter:
         current = time.monotonic() if now is None else now
         cutoff = current - self.window_seconds
         with self._lock:
+            # Remove idle client keys periodically at capacity to bound memory use.
+            if len(self._events) >= self.max_keys and key not in self._events:
+                stale = [
+                    client for client, events in self._events.items()
+                    if not events or events[-1] <= cutoff
+                ]
+                for client in stale:
+                    self._events.pop(client, None)
+                if len(self._events) >= self.max_keys:
+                    oldest = min(
+                        self._events,
+                        key=lambda client: self._events[client][-1] if self._events[client] else float("-inf"),
+                    )
+                    self._events.pop(oldest, None)
+
             events = self._events[key]
             while events and events[0] <= cutoff:
                 events.popleft()

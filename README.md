@@ -3,6 +3,8 @@
 
 ### Unified Enterprise, Personal Assistant & Cybersecurity AI Platform
 
+**Application version:** 0.7.0 (coordinated 8-area upgrade)
+
 NEXUS AI is a modular AI platform designed to bring enterprise assistance, personal productivity, and cybersecurity analysis together through a unified multi-agent architecture.
 
 ## Project Overview
@@ -211,3 +213,37 @@ Configure `NEXUS_RATE_LIMIT_PER_MINUTE`, `NEXUS_MAX_REQUEST_BYTES` (for requests
 - `GET /health/ready` checks Ollama chat/embedding models, Qdrant and SQL memory in non-demo mode; it returns HTTP 503 when a required dependency is unavailable.
 - The Docker image runs as an unprivileged `nexus` user and includes a liveness health check.
 - Render is configured to use `/health/live`. For a real production deployment, use managed persistent SQL storage and configure reachable Ollama/Qdrant services; the public Render demo remains deterministic and stateless.
+
+## Coordinated 8-area engineering upgrade
+
+The current upgrade strengthens all eight engineering areas while preserving
+the existing project architecture:
+
+1. **Agents:** consistent response contracts, bounded profile context, and
+   explicit failure for empty model output.
+2. **Orchestration:** bounded sequential context transfer, explicit untrusted
+   agent-output boundaries, resilient activity logging, and per-agent metrics.
+3. **Decision engine:** source-attributed indicators, negative-signal handling,
+   review escalation, and documented heuristic limits.
+4. **Memory:** identifier and profile validation, JSON safety, bounded profile
+   size, and unique default chat sessions.
+5. **RAG:** bounded documents/metadata/queries, score-threshold validation,
+   vector-size validation, and user-filtered retrieval.
+6. **Evaluation:** validated benchmark cases, stronger signal matching,
+   per-domain reporting, median/P95 latency, and atomic report writes.
+7. **Security:** bounded in-process rate-limiter state, complete demo activity
+   blocking, and privacy-safe application logs.
+8. **CI/CD:** Python 3.11/3.12 test matrix, compile/dependency checks, tracked
+   `.env` guard, and a Docker build check.
+
+See [`docs/UPGRADE_NOTES.md`](docs/UPGRADE_NOTES.md) for exact behavior and
+security boundaries.
+
+### Important identity boundary
+
+`NEXUS_API_KEY` is a shared service credential, not a per-user identity token.
+Request-supplied `user_id` and `session_id` values are not cryptographically
+bound to a verified principal. Persistent profile, memory, and per-user RAG
+features must remain in a trusted local or single-operator environment until
+OIDC/JWT identity and per-user authorization are implemented. Do not describe
+the current system as a multi-tenant production service.
