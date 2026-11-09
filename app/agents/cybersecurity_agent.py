@@ -1,5 +1,5 @@
 from app.agents.contracts import error_result, success_result, validate_agent_message
-from app.core.llm import MODEL, client
+from app.core.llm import CHAT_COMPLETION_OPTIONS, MODEL, client
 
 
 class CybersecurityAgent:
@@ -27,6 +27,7 @@ class CybersecurityAgent:
         )
         try:
             completion = self.client.chat.completions.create(
+                **CHAT_COMPLETION_OPTIONS,
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},

@@ -2,7 +2,7 @@
 import json
 import re
 
-from app.core.llm import client, MODEL
+from app.core.llm import CHAT_COMPLETION_OPTIONS, client, MODEL
 
 
 class ConversationIntelligence:
@@ -154,6 +154,7 @@ For unsupported, explain the limitation honestly.
 
         try:
             result = client.chat.completions.create(
+                **CHAT_COMPLETION_OPTIONS,
                 model=MODEL,
                 messages=messages,
                 temperature=0.1
