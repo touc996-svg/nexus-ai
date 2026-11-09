@@ -1,6 +1,6 @@
 import json
 
-from app.core.llm import client, MODEL
+from app.core.llm import CHAT_COMPLETION_OPTIONS, client, MODEL
 
 
 class ProfileLearning:
@@ -84,6 +84,7 @@ Do not return explanations or Markdown.
 
         try:
             result = client.chat.completions.create(
+                **CHAT_COMPLETION_OPTIONS,
                 model=MODEL,
                 messages=messages,
                 temperature=0,

@@ -9,6 +9,16 @@ DEMO_MODE = os.getenv("NEXUS_DEMO_MODE", "false").lower() in {
     "1", "true", "yes", "on"
 }
 MODEL = os.getenv("NEXUS_MODEL", "qwen3:1.7b")
+
+REASONING_EFFORT = os.getenv(
+    "NEXUS_REASONING_EFFORT", "none"
+).strip().lower()
+
+CHAT_COMPLETION_OPTIONS = (
+    {"extra_body": {"reasoning_effort": REASONING_EFFORT}}
+    if MODEL.lower().startswith("qwen3") and REASONING_EFFORT
+    else {}
+)
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 OLLAMA_BASE_URL = os.getenv(
     "OLLAMA_BASE_URL",
