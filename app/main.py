@@ -1,10 +1,10 @@
-from fastapi.responses import HTMLResponse
-
+import logging
 import os
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.core.orchestrator import nexus
@@ -19,6 +19,7 @@ DEMO_MODE = os.getenv("NEXUS_DEMO_MODE", "false").lower() in {
     "1", "true", "yes", "on"
 }
 MAX_KNOWLEDGE_CONTEXT_CHARS = 6000
+logger = logging.getLogger("nexus.api")
 
 
 def _require_persistent_storage():
@@ -64,7 +65,7 @@ app = FastAPI(
         "Unified Enterprise, Personal Assistant, "
         "and Cybersecurity AI Platform"
     ),
-    version="0.6.0"
+    version="0.7.0"
 )
 
 
@@ -89,7 +90,7 @@ class ProfileRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=5000)
-    session_id: str = Field(default='default', min_length=1, max_length=128)
+    session_id: str = Field(default_factory=lambda: uuid.uuid4().hex, min_length=1, max_length=128)
     user_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 # DASHBOARD
@@ -116,7 +117,8 @@ def decision_engine_status():
     return {
         "name": decision_engine.__class__.__name__,
         "status": "active",
-        "mode": "rule_based",
+        "mode": "explainable_rule_based_v2",
+        "limitations": "Keyword signals are heuristic indicators and require human verification.",
         "capabilities": [
             "Risk detection",
             "Potential contradiction detection",
@@ -287,6 +289,15 @@ def run_team(request: AgentRequest):
 @app.post("/auto")
 def auto_route(request: AgentRequest):
     routing = router.route(request.message)
+    if routing.get("requires_clarification"):
+        return {
+            "routing": routing,
+            "result": None,
+            "clarifying_question": (
+                "Which area should handle this: enterprise, personal assistance, or cybersecurity?"
+            ),
+            "status": "needs_clarification",
+        }
 
     result = nexus.run_agent(
         routing["selected_agent"],
@@ -350,7 +361,9 @@ def chat(request: ChatRequest):
             user_id=request.user_id or "system",
             limit=5
         )
-    except Exception:
+    except Exception as exc:
+        # Do not log user IDs, prompts, document text, or retrieved content.
+        logger.warning("rag_retrieval_unavailable error_type=%s", type(exc).__name__)
         knowledge_context = []
 
     agent_message = request.message
@@ -378,15 +391,9 @@ def chat(request: ChatRequest):
 
     intent = understanding["intent_type"]
 
-    print(
-        "[NEXUS RAG DEBUG]",
-        {
-            "user_id": request.user_id,
-            "results": len(knowledge_context),
-            "scores": [item.get("score") for item in knowledge_context],
-            "initial_intent": intent
-        },
-        flush=True
+    logger.info(
+        "chat_context_ready retrieved_sources=%s intent=%s demo_mode=%s",
+        len(knowledge_context), intent, DEMO_MODE,
     )
 
     if intent == "agent_task":

@@ -1,4 +1,5 @@
 import hashlib
+import json
 import math
 import os
 import threading
@@ -46,6 +47,9 @@ class NexusRAG:
             if score_threshold is not None
             else float(os.getenv("NEXUS_RAG_MIN_SCORE", "0.15"))
         )
+        if not math.isfinite(self.score_threshold) or not -1.0 <= self.score_threshold <= 1.0:
+            raise ValueError("NEXUS_RAG_MIN_SCORE must be between -1 and 1")
+        self.max_document_chars = max(1_000, int(os.getenv("NEXUS_RAG_MAX_DOCUMENT_CHARS", "2000000")))
 
         # Qdrant initialization is deferred until the first client access.
         self._client = client
@@ -193,10 +197,22 @@ class NexusRAG:
     ) -> dict[str, Any]:
         if not isinstance(text, str) or not text.strip():
             raise ValueError("Document contains no extractable text")
-        if not source or not source.strip():
-            raise ValueError("source cannot be empty")
-        if not user_id or not user_id.strip():
-            raise ValueError("user_id cannot be empty")
+        if len(text) > self.max_document_chars:
+            raise ValueError(f"Document exceeds the {self.max_document_chars}-character limit")
+        if not isinstance(source, str) or not source.strip() or len(source) > 255:
+            raise ValueError("source must contain 1 to 255 characters")
+        if not isinstance(user_id, str) or not user_id.strip() or len(user_id) > 128:
+            raise ValueError("user_id must contain 1 to 128 characters")
+        if metadata is not None and not isinstance(metadata, dict):
+            raise ValueError("metadata must be a dictionary")
+        source = source.strip()
+        user_id = user_id.strip()
+        try:
+            metadata_json = json.dumps(metadata or {}, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("metadata must contain JSON-compatible values") from exc
+        if len(metadata_json) > 8_000:
+            raise ValueError("metadata exceeds the 8000-character limit")
 
         if self.demo_mode:
             return {
@@ -315,8 +331,10 @@ class NexusRAG:
     ) -> list[dict[str, Any]]:
         if not isinstance(query, str) or not query.strip():
             raise ValueError("Search query cannot be empty")
-        if not user_id or not user_id.strip():
-            raise ValueError("user_id cannot be empty")
+        if len(query) > 5_000:
+            raise ValueError("Search query exceeds the 5000-character limit")
+        if not isinstance(user_id, str) or not user_id.strip() or len(user_id) > 128:
+            raise ValueError("user_id must contain 1 to 128 characters")
         if not 1 <= limit <= 50:
             raise ValueError("limit must be between 1 and 50")
         if self.demo_mode:
@@ -324,6 +342,8 @@ class NexusRAG:
 
         vector = self.embed(query)
         threshold = self.score_threshold if score_threshold is None else score_threshold
+        if not isinstance(threshold, (int, float)) or not math.isfinite(threshold) or not -1.0 <= threshold <= 1.0:
+            raise ValueError("score_threshold must be between -1 and 1")
         results = self.client.query_points(
             collection_name=self.COLLECTION,
             query=vector,
@@ -347,8 +367,8 @@ class NexusRAG:
         ]
 
     def list_sources(self, user_id: str = "system") -> list[dict[str, Any]]:
-        if not user_id or not user_id.strip():
-            raise ValueError("user_id cannot be empty")
+        if not isinstance(user_id, str) or not user_id.strip() or len(user_id) > 128:
+            raise ValueError("user_id must contain 1 to 128 characters")
         if self.demo_mode:
             return []
 
@@ -383,8 +403,10 @@ class NexusRAG:
         return sorted(sources.values(), key=lambda item: item["source"].lower())
 
     def delete_source(self, source_id: str, user_id: str = "system") -> bool:
-        if not source_id or not user_id:
-            raise ValueError("source_id and user_id are required")
+        if not isinstance(source_id, str) or not source_id.strip() or len(source_id) > 128:
+            raise ValueError("source_id must contain 1 to 128 characters")
+        if not isinstance(user_id, str) or not user_id.strip() or len(user_id) > 128:
+            raise ValueError("user_id must contain 1 to 128 characters")
         if self.demo_mode:
             return False
         source_filter = models.Filter(
