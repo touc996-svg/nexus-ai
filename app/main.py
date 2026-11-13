@@ -609,3 +609,6 @@ from app.api.health import router as health_router
 from app.security.hardening import install_security
 app.include_router(health_router)
 install_security(app)
+
+from app.api.aegis_x import router as aegis_x_router
+app.include_router(aegis_x_router)
