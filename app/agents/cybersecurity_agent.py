@@ -1,4 +1,5 @@
 from app.agents.contracts import error_result, success_result, validate_agent_message
+from app.integrations.aegis_x.tools import AegisXReadOnlyTools, READ_ONLY_TOOLS
 from app.core.llm import CHAT_COMPLETION_OPTIONS, MODEL, client
 
 
@@ -6,8 +7,15 @@ class CybersecurityAgent:
     DOMAIN = "cybersecurity"
     NAME = "Cybersecurity AI Agent"
 
-    def __init__(self, llm_client=None):
+    def __init__(self, llm_client=None, aegis_tools=None):
         self.client = llm_client or client
+        self.aegis_tools = aegis_tools or AegisXReadOnlyTools()
+
+    def run_aegis_tool(self, tool: str, **params):
+        """Dispatch to an allowlisted READ-ONLY AEGIS-X tool (data access only)."""
+        if tool not in READ_ONLY_TOOLS:
+            return {"status": "rejected", "error": f"Unknown read-only tool: {tool}"}
+        return getattr(self.aegis_tools, tool)(**params)
 
     def run(self, message: str):
         valid, reason = validate_agent_message(message)

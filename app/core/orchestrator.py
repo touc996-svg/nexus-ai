@@ -52,6 +52,20 @@ class NexusOrchestrator:
         response = result.get("response") or result.get("output")
         return not isinstance(response, str) or not response.strip()
 
+    def run_aegis_x_tool(self, tool, **params):
+        """Read-only AEGIS-X query routed through the Cybersecurity agent."""
+        started = perf_counter()
+        agent = self.agents.get("cybersecurity")
+        try:
+            result = agent.run_aegis_tool(tool, **params)
+            ok = result.get("status") not in {"rejected", "failed"}
+        except Exception as exc:
+            self._record_activity("cybersecurity", "failed", round((perf_counter() - started) * 1000), type(exc).__name__)
+            return {"status": "failed", "read_only": True, "error": "AEGIS-X read-only tool failed. Check server logs."}
+        self._record_activity("cybersecurity", "success" if ok else "failed",
+                              round((perf_counter() - started) * 1000), None if ok else str(result.get("error"))[:200])
+        return result
+
     def run_agent(self, domain, message, internal=False, user_profile=None):
         started = perf_counter()
         agent_name = domain.strip().lower() if isinstance(domain, str) else "unknown"

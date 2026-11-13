@@ -1,0 +1,8 @@
+{"finding_id":"f-aws-001","cloud":"aws","provider":"guardduty","native_id":"gd-abc123","severity":"high","title":"Unauthorized access: console login from unusual location","resource_id":"arn:aws:iam::111122223333:user/alice","account_id":"111122223333","region":"us-east-1","observed_at":"2026-11-01T10:00:00Z","mitre_techniques":["T1078"],"finding_type":"UnauthorizedAccess:IAMUser/ConsoleLoginSuccess.B","status":"active","evidence":[{"type":"cloudtrail_event","ref":"evt-1"}],"native_severity":7.5}
+{"finding_id":"f-aws-002","cloud":"aws","provider":"guardduty","native_id":"gd-def456","severity":"medium","title":"Recon: port probe","resource_id":"arn:aws:iam::111122223333:user/alice","account_id":"111122223333","observed_at":"2026-11-01T09:30:00+00:00","mitre_techniques":["T1078","T1046"],"status":"active"}
+{"finding_id":"f-az-001","cloud":"azure","provider":"defender","severity":"low","title":"Suspicious sign-in attempt","observed_at":"2026-11-02T08:00:00Z"}
+{"finding_id":"f-gcp-001","cloud":"gcp","provider":"scc","native_id":"scc-9","severity":"critical","title":"Public bucket","resource_id":"gs://demo-bucket","observed_at":"2026-10-20T00:00:00Z","status":"archived"}
+{"finding_id":"f-bad-001","cloud":"oracle","provider":"x","severity":"high","title":"bad cloud","observed_at":"2026-11-01T00:00:00Z"}
+{"finding_id":"f-bad-002","cloud":"aws","provider":"x","severity":"urgent","title":"bad severity","observed_at":"not-a-date"}
+this is not json
+{"finding_id":"f-aws-001","cloud":"aws","provider":"guardduty","severity":"low","title":"duplicate id","observed_at":"2026-11-01T00:00:00Z"}

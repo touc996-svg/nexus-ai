@@ -1,0 +1,5 @@
+{"incidents":[
+ {"incident_id":"inc-1","title":"Possible credential misuse for alice","status":"open","severity":"high","finding_ids":["f-aws-001","f-aws-002","f-missing-9"]},
+ {"incident_id":"inc-empty","title":"Empty incident","finding_ids":[]},
+ {"title":"no id"}
+]}
