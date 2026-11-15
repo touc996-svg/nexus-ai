@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+from .retrievers import SYSTEMS
 from .harness import check_against_baseline, evaluate, flatten
 
 BASELINE = Path(__file__).parent / "baseline.json"
@@ -13,24 +14,25 @@ BASELINE = Path(__file__).parent / "baseline.json"
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Offline RAG evaluation with a regression gate.")
-    p.add_argument("--system", default="hybrid", choices=["bm25", "tfidf", "hybrid", "broken"])
+    p.add_argument("--system", default=None, choices=SYSTEMS)
     p.add_argument("--check", action="store_true", help="fail (exit 1) if metrics regress vs baseline.json")
-    p.add_argument("--update-baseline", action="store_true", help="write current hybrid metrics as the baseline")
+    p.add_argument("--update-baseline", action="store_true", help="write the selected system's metrics as the baseline")
     p.add_argument("--tolerance", type=float, default=0.02)
     p.add_argument("--output", type=Path, help="write the full JSON report here")
     p.add_argument("--compare", action="store_true", help="print a side-by-side of every system")
     args = p.parse_args(argv)
 
     if args.compare:
-        names = ["bm25", "tfidf", "hybrid"]
+        names = ["bm25", "tfidf", "hybrid", "dense", "hybrid_dense", "rerank"]
         reports = {n: flatten(evaluate(n)["summary"]) for n in names}
         keys = list(reports["bm25"])
-        print(f"{'metric':32}" + "".join(f"{n:>10}" for n in names))
+        print(f"{'metric':32}" + "".join(f"{n:>13}" for n in names))
         for k in keys:
-            print(f"{k:32}" + "".join(f"{reports[n][k]:>10.3f}" for n in names))
+            print(f"{k:32}" + "".join(f"{reports[n][k]:>13.3f}" for n in names))
         return 0
 
-    report = evaluate(args.system)
+    system = args.system or (json.loads(BASELINE.read_text())["system"] if BASELINE.exists() else "hybrid")
+    report = evaluate(system)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2) + "\n")

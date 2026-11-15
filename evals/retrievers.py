@@ -114,14 +114,66 @@ class ReversedRetriever:
         return list(reversed(self.inner.search(query, 50)))[:k]
 
 
+class DenseRetriever:
+    """Cosine similarity over local nomic-embed-text embeddings (cached; see ollama.py)."""
+
+    name = "dense"
+
+    def __init__(self, corpus: dict[str, str], embedder=None):
+        from .ollama import Embedder  # imported lazily so lexical systems need no model access
+
+        self.embedder = embedder or Embedder()
+        self.vectors = {i: self._unit(self.embedder.embed(t, "document")) for i, t in corpus.items()}
+
+    @staticmethod
+    def _unit(vec: list[float]) -> list[float]:
+        norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+        return [x / norm for x in vec]
+
+    def search(self, query: str, k: int) -> list[tuple[str, float]]:
+        q = self._unit(self.embedder.embed(query, "query"))
+        scored = [(i, sum(a * b for a, b in zip(q, v))) for i, v in self.vectors.items()]
+        scored.sort(key=lambda x: (-x[1], x[0]))
+        return scored[:k]
+
+
+class LLMReranker:
+    """Re-scores a first-stage candidate list with a local LLM judge, keeping stage-1 order on ties."""
+
+    name = "rerank"
+
+    def __init__(self, first_stage: Retriever, corpus: dict[str, str], judge=None, depth: int = 5):
+        from .ollama import LLMJudge
+
+        self.first, self.corpus, self.depth = first_stage, corpus, depth
+        self.judge = judge or LLMJudge()
+
+    def search(self, query: str, k: int) -> list[tuple[str, float]]:
+        candidates = self.first.search(query, self.depth)
+        rescored = [(doc_id, float(self.judge.score(query, self.corpus[doc_id])), -rank)
+                    for rank, (doc_id, _) in enumerate(candidates)]
+        rescored.sort(key=lambda x: (-x[1], -x[2]))
+        return [(d, s) for d, s, _ in rescored][:k]
+
+
+SYSTEMS = ["bm25", "tfidf", "hybrid", "dense", "hybrid_dense", "rerank", "broken"]
+
+
 def build_system(name: str, corpus: dict[str, str]) -> Retriever:
+    if name not in SYSTEMS:
+        raise ValueError(f"unknown system {name!r}; choose from {SYSTEMS}")
     bm25, tfidf = BM25(corpus), TfidfCosine(corpus)
-    systems = {
-        "bm25": bm25,
-        "tfidf": tfidf,
-        "hybrid": ReciprocalRankFusion([bm25, tfidf]),
-        "broken": ReversedRetriever(bm25),
-    }
-    if name not in systems:
-        raise ValueError(f"unknown system {name!r}; choose from {sorted(systems)}")
-    return systems[name]
+    if name == "bm25":
+        return bm25
+    if name == "tfidf":
+        return tfidf
+    if name == "hybrid":
+        return ReciprocalRankFusion([bm25, tfidf])
+    if name == "broken":
+        return ReversedRetriever(bm25)
+    dense = DenseRetriever(corpus)
+    if name == "dense":
+        return dense
+    fused = ReciprocalRankFusion([bm25, tfidf, dense])
+    fused.name = "hybrid_dense"
+    return fused if name == "hybrid_dense" else LLMReranker(fused, corpus)

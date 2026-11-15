@@ -287,10 +287,23 @@ answer by its cited sources), citation precision (answers); correct and false ab
 answerable questions). `tests/test_eval_harness.py` includes mutation checks: a deliberately broken retriever
 and a deliberately hallucinating answerer must each trip the gate.
 
-Current baseline (hybrid): hit@1 0.88, recall@3 0.92, MRR 0.91, answer correct 0.84, faithfulness 1.00,
-correct abstention 1.00, false abstention 0.08.
+Systems compared (`python -m evals.run --compare`): BM25, TF-IDF, lexical hybrid (RRF), dense
+(`nomic-embed-text` via local Ollama), dense+lexical hybrid, and hybrid followed by a local-LLM reranker
+(`qwen3:1.7b`, temperature 0, fixed seed). Embeddings and reranker judgements are cached in `evals/cache/`
+so CI and tests run offline; a cache miss with no Ollama is an error, never a guess. To refresh after changing
+the dataset: run with Ollama up, then `python -m evals.run --system rerank --update-baseline`.
 
-Known limits, stated plainly: on this small lexical corpus BM25, TF-IDF and hybrid score the same, so the
-hybrid has not yet shown a benefit. The four failing questions are vocabulary-gap or multi-document cases that
-lexical search cannot solve; dense embeddings and a reranker are the next step. Faithfulness is a lexical
-proxy, not a model-judged measure.
+| metric | bm25 | lexical hybrid | dense | hybrid + dense | + LLM rerank (baseline) |
+|---|---|---|---|---|---|
+| hit@1 | 0.88 | 0.88 | 0.84 | 0.88 | **0.92** |
+| recall@3 | 0.92 | 0.92 | 0.98 | 0.94 | **1.00** |
+| MRR | 0.91 | 0.91 | 0.92 | 0.92 | **0.95** |
+| answer correct | 0.84 | 0.84 | 0.76 | 0.84 | 0.84 |
+| false abstention | 0.08 | 0.08 | 0.20 | 0.08 | 0.08 |
+
+Findings, stated plainly: the reranker improves retrieval (MRR 0.91 to 0.95, recall@3 to 1.00). Dense search
+alone raises recall but hurts answers (false abstention 0.20), so it is only useful fused or reranked. Answer
+correctness did not improve (0.84): the bottleneck is now the extractive answerer and its lexical abstention
+rule, not retrieval. The next step is a grounded LLM generator evaluated by this same harness. Faithfulness
+is a lexical proxy, not a model-judged measure. The dataset is small (25 answerable questions), so differences
+of one question move a metric by 0.04; treat results as a regression guard, not a benchmark.

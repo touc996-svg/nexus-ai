@@ -2,13 +2,13 @@
   "metrics": {
     "abstention.correct_rate": 1.0,
     "abstention.false_rate": 0.08,
-    "answer.citation_precision": 0.6957,
+    "answer.citation_precision": 0.7174,
     "answer.correct_rate": 0.84,
     "answer.faithfulness": 1.0,
-    "retrieval.hit_at_1": 0.88,
-    "retrieval.mrr": 0.91,
-    "retrieval.ndcg_at_3": 0.9052,
-    "retrieval.recall_at_3": 0.92
+    "retrieval.hit_at_1": 0.92,
+    "retrieval.mrr": 0.9533,
+    "retrieval.ndcg_at_3": 0.962,
+    "retrieval.recall_at_3": 1.0
   },
-  "system": "hybrid"
+  "system": "rerank"
 }

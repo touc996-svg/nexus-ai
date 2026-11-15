@@ -67,13 +67,18 @@ def _stable(report):
     return {k: v for k, v in report.items() if k != "timing_ms"}
 
 
+def _baseline():
+    return json.loads(BASELINE.read_text())
+
+
 def test_evaluation_is_deterministic():
     assert _stable(evaluate("hybrid")) == _stable(evaluate("hybrid"))
+    assert _stable(evaluate("rerank")) == _stable(evaluate("rerank"))
 
 
 def test_current_system_passes_committed_baseline():
-    baseline = json.loads(BASELINE.read_text())
-    assert check_against_baseline(evaluate("hybrid"), baseline) == []
+    baseline = _baseline()
+    assert check_against_baseline(evaluate(baseline["system"]), baseline) == []
     assert main(["--check"]) == 0
 
 
@@ -87,16 +92,45 @@ def test_gate_fails_when_retrieval_is_broken():
 def test_gate_fails_when_answers_are_not_grounded():
     """Mutation check: an answerer that invents a claim must trip the faithfulness gate."""
     baseline = json.loads(BASELINE.read_text())
-    problems = check_against_baseline(evaluate("hybrid", hallucinate=True), baseline)
+    problems = check_against_baseline(evaluate(baseline["system"], hallucinate=True), baseline)
     assert any(p.startswith("answer.faithfulness") for p in problems)
 
 
 def test_gate_flags_a_metric_missing_from_the_baseline():
-    report = evaluate("hybrid")
+    report = evaluate(_baseline()["system"])
     baseline = {"metrics": {k: v for k, v in flatten(report["summary"]).items() if k != "retrieval.mrr"}}
     assert any("retrieval.mrr" in p for p in check_against_baseline(report, baseline))
 
 
 def test_unanswerable_questions_are_abstained_on():
-    report = evaluate("hybrid")
+    report = evaluate(_baseline()["system"])
     assert report["summary"]["abstention"]["correct_rate"] == 1.0
+
+
+# ---- dense + reranker run offline from the committed cache ---------------------------------
+
+def test_model_backed_systems_never_touch_the_network(monkeypatch):
+    """The cache must cover the whole dataset; any live call would raise here."""
+    import urllib.request
+
+    def forbidden(*a, **k):
+        raise AssertionError("network call attempted; embeddings/rerank cache is incomplete")
+
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden)
+    for system in ("dense", "hybrid_dense", "rerank"):
+        assert evaluate(system)["counts"]["answerable"] == 25
+
+
+def test_reranker_improves_top_rank_over_lexical_hybrid():
+    lexical, reranked = evaluate("hybrid")["summary"]["retrieval"], evaluate("rerank")["summary"]["retrieval"]
+    assert reranked["mrr"] > lexical["mrr"]
+    assert reranked["recall_at_3"] >= lexical["recall_at_3"]
+
+
+def test_cache_miss_is_an_error_not_a_guess(monkeypatch, tmp_path):
+    from evals import ollama
+
+    monkeypatch.setattr(ollama, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(ollama, "BASE_URL", "http://127.0.0.1:9")  # nothing listens here
+    with pytest.raises(ollama.CacheMiss):
+        ollama.Embedder().embed("never seen before", "query")
