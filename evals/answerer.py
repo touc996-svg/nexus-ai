@@ -85,8 +85,13 @@ class LLMAnswerer:
         text = self.generator.generate(question, passages)
         if "INSUFFICIENT_INFORMATION" in text:
             return Answer("I don't have enough information to answer that.", [], True)
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
         valid = {d for d, _ in passages}
         cited = [c for c in dict.fromkeys(re.findall(r"\[(d\d+)\]", text)) if c in valid]
+        if not cited:
+            # Fail closed: output that cites no shown passage (including leaked reasoning that never
+            # reached an answer) is not a grounded answer, so it is treated as a refusal.
+            return Answer("I don't have enough information to answer that.", [], True)
         clean = re.sub(r"\s*\[d\d+\]", "", text).strip()
         return Answer(clean, cited, False)
 

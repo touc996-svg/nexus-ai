@@ -188,3 +188,14 @@ def test_hallucination_mutation_is_caught_for_the_llm_path_too():
     clean = evaluate("rerank", answerer="llm")["summary"]["answer"]["faithfulness"]
     dirty = evaluate("rerank", answerer="llm", hallucinate=True)["summary"]["answer"]["faithfulness"]
     assert dirty < clean
+
+
+def test_llm_answer_without_a_valid_citation_fails_closed():
+    """Leaked reasoning or an uncited claim is not a grounded answer; it must be a refusal."""
+    ans = _llm("Hmm, the user is asking about billing. Let me look at the passages.").answer("When are two findings linked?")
+    assert ans.abstained and ans.citations == []
+
+
+def test_think_blocks_are_stripped_before_citation_parsing():
+    ans = _llm("<think>maybe [d09]</think>Linked at score 2 [d03].").answer("When are two findings linked?")
+    assert ans.citations == ["d03"] and "think" not in ans.text

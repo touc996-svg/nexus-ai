@@ -334,3 +334,25 @@ Model size note: `qwen3:8b` was pulled to test whether the gap is model size, bu
 so the 6 GB model runs partly on CPU and a one-word reply did not return in over three minutes. It was not
 usable here, so no 8B result is reported. `EVALS_GEN_MODEL` and `EVALS_TIMEOUT` select the generator and request
 timeout for anyone with more memory.
+
+### Model-size experiment (1.7B vs 4B) and a fail-closed rule
+
+Same retrieval, same prompt, `qwen3:4b` instead of `qwen3:1.7b`:
+
+| metric | extractive (baseline) | LLM 1.7B | LLM 4B |
+|---|---|---|---|
+| answer correct | **0.84** | 0.68 | 0.68 |
+| faithfulness (lexical) | **1.00** | 0.76 | 0.56 |
+| citation precision | 0.72 | **0.93** | 0.53 |
+| correct abstention (4 unanswerable) | 1.00 | 1.00 | 0.50 |
+| false abstention | **0.08** | 0.20 | 0.20 |
+
+The larger model was not better. In 14 of its 22 answers it wrote out its reasoning ("Hmm, the user is
+asking...") instead of the answer, even though `think: false` was sent, and the output limit cut that text off
+before any refusal or conclusion. Before any fix, 3 of 4 unanswerable questions were "answered" with rambling
+reasoning (abstention 0.25). I then added a fail-closed rule: output that cites no passage it was shown, or is
+only reasoning, counts as a refusal. That was added after seeing these results, so both sets of numbers are
+reported; it moved 4B abstention from 0.25 to 0.50 and left 1.7B unchanged. The remaining gap is an
+output-contract problem, not just model quality. The production fix is constrained output (a JSON schema via
+Ollama's `format` option, or an explicit no-think instruction) with the answer, citations and a refusal flag as
+separate fields; I have not done that yet and did not keep re-tuning the prompt on the same 25 questions.
