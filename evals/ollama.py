@@ -111,3 +111,32 @@ class LLMJudge:
         value = int(m.group(1)) if m else 0
         self.cache.put(key, value)
         return value
+
+
+class LLMGenerator:
+    """Grounded answer generation: answer only from the passages, cite ids, or refuse."""
+
+    REFUSAL = "INSUFFICIENT_INFORMATION"
+    PROMPT = (
+        "Answer the question using ONLY the passages below. Be concise (1-2 sentences). "
+        "After each claim, cite the passage id in square brackets, like [d03]. "
+        "If the passages do not contain the answer, reply with exactly " + REFUSAL + " and nothing else.\n\n"
+        "{passages}\n\nQuestion: {q}\nAnswer:"
+    )
+
+    def __init__(self, model: str = RERANK_MODEL):
+        self.model, self.cache = model, JsonCache("generate.json")
+
+    def generate(self, question: str, passages: list[tuple[str, str]]) -> str:
+        block = "\n".join(f"[{i}] {t}" for i, t in passages)
+        key = _key(self.model, "generate", question, block)
+        hit = self.cache.get(key)
+        if hit is not None:
+            return hit
+        out = _post("/api/chat", {
+            "model": self.model, "stream": False, "think": False,
+            "options": {"temperature": 0, "seed": 0, "num_predict": 160},
+            "messages": [{"role": "user", "content": self.PROMPT.format(passages=block, q=question)}],
+        })["message"]["content"].strip()
+        self.cache.put(key, out)
+        return out

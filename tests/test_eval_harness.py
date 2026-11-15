@@ -134,3 +134,57 @@ def test_cache_miss_is_an_error_not_a_guess(monkeypatch, tmp_path):
     monkeypatch.setattr(ollama, "BASE_URL", "http://127.0.0.1:9")  # nothing listens here
     with pytest.raises(ollama.CacheMiss):
         ollama.Embedder().embed("never seen before", "query")
+
+
+# ---- LLM answerer: parsing, refusals, offline replay ---------------------------------------
+
+class _Stub:
+    def __init__(self, text):
+        self.text = text
+
+    def generate(self, question, passages):
+        return self.text
+
+
+def _llm(text):
+    from evals.answerer import LLMAnswerer
+    from evals.retrievers import build_system
+
+    corpus, _ = load_dataset()
+    return LLMAnswerer(build_system("bm25", corpus), corpus, generator=_Stub(text))
+
+
+def test_llm_answerer_parses_and_strips_citations():
+    ans = _llm("Findings are linked at a score of 2 [d03] and grouped. [d03]").answer("When are two findings linked?")
+    assert ans.citations == ["d03"] and "[" not in ans.text and not ans.abstained
+
+
+def test_llm_answerer_ignores_citations_it_was_not_shown():
+    ans = _llm("Some claim [d99].").answer("When are two findings linked?")
+    assert ans.citations == []
+
+
+def test_llm_answerer_honours_refusal():
+    ans = _llm("INSUFFICIENT_INFORMATION").answer("When are two findings linked?")
+    assert ans.abstained and ans.citations == []
+
+
+def test_wrong_source_citation_is_penalised():
+    """Right content cited to the wrong document (seen in a real run) must score zero precision."""
+    assert m.citation_precision(["d10"], {"d08"}) == 0.0
+
+
+def test_llm_generation_replays_offline_from_cache(monkeypatch):
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("network call attempted")))
+    report = evaluate("rerank", answerer="llm")
+    assert report["answerer"] == "llm" and report["counts"]["answerable"] == 25
+    assert report["summary"]["abstention"]["correct_rate"] == 1.0
+
+
+def test_hallucination_mutation_is_caught_for_the_llm_path_too():
+    clean = evaluate("rerank", answerer="llm")["summary"]["answer"]["faithfulness"]
+    dirty = evaluate("rerank", answerer="llm", hallucinate=True)["summary"]["answer"]["faithfulness"]
+    assert dirty < clean

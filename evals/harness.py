@@ -7,7 +7,7 @@ from statistics import mean
 from time import perf_counter
 
 from . import metrics as m
-from .answerer import ExtractiveAnswerer, HallucinatingAnswerer
+from .answerer import ExtractiveAnswerer, HallucinatingAnswerer, LLMAnswerer
 from .retrievers import build_system
 
 DATA = Path(__file__).parent / "datasets"
@@ -54,23 +54,27 @@ def _avg(values: list[float]) -> float:
     return round(mean(values), 4) if values else 0.0
 
 
-def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path = DATA) -> dict:
+def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path = DATA,
+             answerer: str = "extractive") -> dict:
     corpus, questions = load_dataset(data_dir)
     validate_dataset(corpus, questions)
     retriever = build_system(system, corpus)
-    answerer = ExtractiveAnswerer(retriever, corpus, k=K)
+    if answerer not in ("extractive", "llm"):
+        raise ValueError("answerer must be 'extractive' or 'llm'")
+    gen = (LLMAnswerer(retriever, corpus, k=K) if answerer == "llm"
+           else ExtractiveAnswerer(retriever, corpus, k=K))
     if hallucinate:
-        answerer = HallucinatingAnswerer(answerer)
+        gen = HallucinatingAnswerer(gen)
 
     rows, latencies = [], []
     for q in questions:
         relevant = set(q["relevant"])
         started = perf_counter()
         ranked = [d for d, _ in retriever.search(q["question"], 10)]
-        ans = answerer.answer(q["question"])
+        ans = gen.answer(q["question"])
         latencies.append((perf_counter() - started) * 1000)
         row = {"id": q["id"], "difficulty": q["difficulty"], "answerable": q["answerable"],
-               "retrieved": ranked[:K], "abstained": ans.abstained, "citations": ans.citations}
+               "retrieved": ranked[:K], "abstained": ans.abstained, "citations": ans.citations, "answer": ans.text}
         if q["answerable"]:
             row.update(
                 hit_at_1=m.hit_at_k(ranked, relevant, 1),
@@ -81,7 +85,7 @@ def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path =
             if not ans.abstained:
                 row.update(
                     correct=m.keywords_present(ans.text, q["answer_keywords"]),
-                    faithfulness=m.support_ratio(ans.text, [corpus[c] for c in ans.citations]),
+                    faithfulness=m.support_ratio(ans.text, [corpus[c] for c in (ans.citations or ranked[:K])]),
                     citation_precision=m.citation_precision(ans.citations, relevant),
                 )
             else:
@@ -111,6 +115,7 @@ def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path =
     ordered = sorted(latencies)
     return {
         "system": system,
+        "answerer": answerer,
         "hallucinating_answerer": hallucinate,
         "counts": {"answerable": len(ans_rows), "unanswerable": len(unans_rows), "documents": len(corpus)},
         "summary": summary,

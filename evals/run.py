@@ -17,6 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--system", default=None, choices=SYSTEMS)
     p.add_argument("--check", action="store_true", help="fail (exit 1) if metrics regress vs baseline.json")
     p.add_argument("--update-baseline", action="store_true", help="write the selected system's metrics as the baseline")
+    p.add_argument("--answerer", default=None, choices=["extractive", "llm"])
     p.add_argument("--tolerance", type=float, default=0.02)
     p.add_argument("--output", type=Path, help="write the full JSON report here")
     p.add_argument("--compare", action="store_true", help="print a side-by-side of every system")
@@ -31,16 +32,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{k:32}" + "".join(f"{reports[n][k]:>13.3f}" for n in names))
         return 0
 
-    system = args.system or (json.loads(BASELINE.read_text())["system"] if BASELINE.exists() else "hybrid")
-    report = evaluate(system)
+    base = json.loads(BASELINE.read_text()) if BASELINE.exists() else {}
+    system = args.system or base.get("system", "hybrid")
+    answerer = args.answerer or base.get("answerer", "extractive")
+    report = evaluate(system, answerer=answerer)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps({"system": report["system"], "summary": report["summary"],
+    print(json.dumps({"system": report["system"], "answerer": report["answerer"], "summary": report["summary"],
                       "failures": report["failures"]}, indent=2))
 
     if args.update_baseline:
-        BASELINE.write_text(json.dumps({"system": report["system"], "metrics": flatten(report["summary"])},
+        BASELINE.write_text(json.dumps({"system": report["system"], "answerer": report["answerer"], "metrics": flatten(report["summary"])},
                                        indent=2, sort_keys=True) + "\n")
         print(f"baseline written to {BASELINE}")
     if args.check:

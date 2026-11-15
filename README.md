@@ -307,3 +307,25 @@ correctness did not improve (0.84): the bottleneck is now the extractive answere
 rule, not retrieval. The next step is a grounded LLM generator evaluated by this same harness. Faithfulness
 is a lexical proxy, not a model-judged measure. The dataset is small (25 answerable questions), so differences
 of one question move a metric by 0.04; treat results as a regression guard, not a benchmark.
+
+### LLM generator (`--answerer llm`)
+
+A grounded generator (`qwen3:1.7b` via Ollama) answers only from the top-3 reranked passages, cites passage ids,
+and must reply `INSUFFICIENT_INFORMATION` when the evidence is missing. Generations are cached like the rest.
+Same retrieval (rerank), different answerer:
+
+| metric | extractive (gated baseline) | LLM 1.7B |
+|---|---|---|
+| answer correct | **0.84** | 0.68 |
+| faithfulness (lexical proxy) | **1.00** | 0.76 |
+| citation precision | 0.72 | **0.93** |
+| false abstention | **0.08** | 0.20 |
+| correct abstention | 1.00 | 1.00 |
+
+The small LLM is worse than the extractive baseline, so the extractive answerer stays the gated baseline. What
+the harness exposed (not tuned away, since tuning the prompt on the same 25 questions would invalidate them):
+five answerable questions were refused even though retrieval supplied the right passage; three answers were
+wrong (a score stated as 1 where the source says 3; a duplicate-prevention answer naming the wrong
+components); one correct answer was cited to the wrong document, which citation precision caught. Lexical
+faithfulness is noisy when a model paraphrases, so the next step is a model-judged faithfulness metric and a
+larger local model, both measured on a held-out question set.

@@ -68,4 +68,27 @@ class HallucinatingAnswerer:
                       base.citations, False)
 
 
-__all__ = ["Answer", "ExtractiveAnswerer", "HallucinatingAnswerer", "content_tokens"]
+class LLMAnswerer:
+    """Retrieve top-k, generate with a local LLM, parse citations, honour refusals."""
+
+    def __init__(self, retriever: Retriever, corpus: dict[str, str], generator=None, k: int = 3):
+        from .ollama import LLMGenerator
+
+        self.retriever, self.corpus, self.k = retriever, corpus, k
+        self.generator = generator or LLMGenerator()
+
+    def answer(self, question: str) -> Answer:
+        hits = self.retriever.search(question, self.k)
+        if not hits:
+            return Answer("I don't have enough information to answer that.", [], True)
+        passages = [(doc_id, self.corpus[doc_id]) for doc_id, _ in hits]
+        text = self.generator.generate(question, passages)
+        if "INSUFFICIENT_INFORMATION" in text:
+            return Answer("I don't have enough information to answer that.", [], True)
+        valid = {d for d, _ in passages}
+        cited = [c for c in dict.fromkeys(re.findall(r"\[(d\d+)\]", text)) if c in valid]
+        clean = re.sub(r"\s*\[d\d+\]", "", text).strip()
+        return Answer(clean, cited, False)
+
+
+__all__ = ["Answer", "ExtractiveAnswerer", "LLMAnswerer", "HallucinatingAnswerer", "content_tokens"]
