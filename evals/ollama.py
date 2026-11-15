@@ -20,7 +20,7 @@ CACHE_DIR = Path(__file__).parent / "cache"
 BASE_URL = os.getenv("EVALS_OLLAMA_URL", "http://localhost:11434")
 EMBED_MODEL = os.getenv("EVALS_EMBED_MODEL", "nomic-embed-text")
 RERANK_MODEL = os.getenv("EVALS_RERANK_MODEL", "qwen3:1.7b")
-GEN_MODEL = os.getenv("EVALS_GEN_MODEL", RERANK_MODEL)
+GEN_MODEL = os.getenv("EVALS_GEN_MODEL", "qwen3:4b")
 
 
 class CacheMiss(RuntimeError):
@@ -116,29 +116,55 @@ class LLMJudge:
 
 
 class LLMGenerator:
-    """Grounded answer generation: answer only from the passages, cite ids, or refuse."""
+    """Grounded answer generation. Structured mode constrains output to a JSON schema.
+
+    Structured output separates the answer, its citations and an explicit refusal flag into
+    fields, so the result is parsed rather than scraped out of free text, and the model
+    cannot leak reasoning into the answer.
+    """
 
     REFUSAL = "INSUFFICIENT_INFORMATION"
-    PROMPT = (
+    SCHEMA = {
+        "type": "object",
+        "properties": {
+            "refusal": {"type": "boolean"},
+            "answer": {"type": "string"},
+            "citations": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["refusal", "answer", "citations"],
+    }
+    STRUCTURED_PROMPT = (
+        "Answer the question using ONLY the passages below. Respond as JSON with three fields: "
+        "refusal (true if the passages do not contain the answer), answer (one or two concise sentences; "
+        "empty if refusal is true), citations (ids of the passages the answer is based on, for example "
+        "[\"d03\"]; empty if refusal is true).\n\n{passages}\n\nQuestion: {q}"
+    )
+    FREE_TEXT_PROMPT = (
         "Answer the question using ONLY the passages below. Be concise (1-2 sentences). "
         "After each claim, cite the passage id in square brackets, like [d03]. "
         "If the passages do not contain the answer, reply with exactly " + REFUSAL + " and nothing else.\n\n"
         "{passages}\n\nQuestion: {q}\nAnswer:"
     )
 
-    def __init__(self, model: str | None = None):
-        self.model, self.cache = model or GEN_MODEL, JsonCache("generate.json")
+    def __init__(self, model: str | None = None, structured: bool = True):
+        self.model, self.structured = model or GEN_MODEL, structured
+        self.cache = JsonCache("generate.json")
 
     def generate(self, question: str, passages: list[tuple[str, str]]) -> str:
         block = "\n".join(f"[{i}] {t}" for i, t in passages)
-        key = _key(self.model, "generate", question, block)
+        mode = "structured" if self.structured else "generate"
+        key = _key(self.model, mode, question, block)
         hit = self.cache.get(key)
         if hit is not None:
             return hit
-        out = _post("/api/chat", {
+        prompt = (self.STRUCTURED_PROMPT if self.structured else self.FREE_TEXT_PROMPT)
+        payload = {
             "model": self.model, "stream": False, "think": False,
-            "options": {"temperature": 0, "seed": 0, "num_predict": 160},
-            "messages": [{"role": "user", "content": self.PROMPT.format(passages=block, q=question)}],
-        })["message"]["content"].strip()
+            "options": {"temperature": 0, "seed": 0, "num_predict": 200},
+            "messages": [{"role": "user", "content": prompt.format(passages=block, q=question)}],
+        }
+        if self.structured:
+            payload["format"] = self.SCHEMA
+        out = _post("/api/chat", payload)["message"]["content"].strip()
         self.cache.put(key, out)
         return out

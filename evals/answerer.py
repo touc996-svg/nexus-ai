@@ -1,6 +1,7 @@
 """Grounded answerers: retrieve, then answer only from evidence or abstain."""
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -83,6 +84,9 @@ class LLMAnswerer:
             return Answer("I don't have enough information to answer that.", [], True)
         passages = [(doc_id, self.corpus[doc_id]) for doc_id, _ in hits]
         text = self.generator.generate(question, passages)
+        structured = self._parse_structured(text)
+        if structured is not None:
+            return self._from_structured(structured, passages)
         if "INSUFFICIENT_INFORMATION" in text:
             return Answer("I don't have enough information to answer that.", [], True)
         text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
@@ -94,6 +98,27 @@ class LLMAnswerer:
             return Answer("I don't have enough information to answer that.", [], True)
         clean = re.sub(r"\s*\[d\d+\]", "", text).strip()
         return Answer(clean, cited, False)
+
+    REFUSE = "I don't have enough information to answer that."
+
+    @staticmethod
+    def _parse_structured(text: str):
+        """Return the parsed object if the text is a schema-shaped JSON object, else None (legacy text)."""
+        try:
+            data = json.loads(text)
+        except (ValueError, TypeError):
+            return None
+        return data if isinstance(data, dict) and {"refusal", "answer", "citations"} <= data.keys() else None
+
+    def _from_structured(self, data: dict, passages) -> Answer:
+        valid = {d for d, _ in passages}
+        answer = data["answer"].strip() if isinstance(data["answer"], str) else ""
+        raw = data["citations"] if isinstance(data["citations"], list) else []
+        cited = [c for c in dict.fromkeys(x for x in raw if isinstance(x, str)) if c in valid]
+        if data["refusal"] is not False or not answer or not cited:
+            # refusal, an empty answer, or no citation to a shown passage: fail closed
+            return Answer(self.REFUSE, [], True)
+        return Answer(answer, cited, False)
 
 
 __all__ = ["Answer", "ExtractiveAnswerer", "LLMAnswerer", "HallucinatingAnswerer", "content_tokens"]

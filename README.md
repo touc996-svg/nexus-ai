@@ -308,51 +308,37 @@ rule, not retrieval. The next step is a grounded LLM generator evaluated by this
 is a lexical proxy, not a model-judged measure. The dataset is small (25 answerable questions), so differences
 of one question move a metric by 0.04; treat results as a regression guard, not a benchmark.
 
-### LLM generator (`--answerer llm`)
+### Grounded generation (`--answerer llm`) and what the experiments showed
 
-A grounded generator (`qwen3:1.7b` via Ollama) answers only from the top-3 reranked passages, cites passage ids,
-and must reply `INSUFFICIENT_INFORMATION` when the evidence is missing. Generations are cached like the rest.
-Same retrieval (rerank), different answerer:
+Retrieval is fixed (hybrid + rerank); only the answerer changes. A local model answers from the top-3 passages.
+Structured mode constrains the output to a JSON schema (`refusal`, `answer`, `citations`) through Ollama's
+`format` option, and the parser fails closed: a refusal, an empty answer, malformed fields, or a citation to
+a passage that was not shown all count as a refusal. All generations are cached, so CI replays them offline.
 
-| metric | extractive (gated baseline) | LLM 1.7B |
-|---|---|---|
-| answer correct | **0.84** | 0.68 |
-| faithfulness (lexical proxy) | **1.00** | 0.76 |
-| citation precision | 0.72 | **0.93** |
-| false abstention | **0.08** | 0.20 |
-| correct abstention | 1.00 | 1.00 |
+| answerer | correct | faithfulness* | citation precision | correct abstention | false abstention |
+|---|---|---|---|---|---|
+| extractive (sentence picking) | 0.84 | 1.00 | 0.72 | 1.00 | 0.08 |
+| qwen3 1.7B, free text | 0.68 | 0.76 | 0.93 | 1.00 | 0.20 |
+| qwen3 4B, free text (fail-closed) | 0.68 | 0.56 | 0.53 | 0.50 | 0.20 |
+| qwen3 1.7B, structured | 0.76 | 0.75 | 0.93 | 1.00 | 0.12 |
+| **qwen3 4B, structured (gated baseline)** | **0.92** | 0.91 | **1.00** | **1.00** | **0.08** |
 
-The small LLM is worse than the extractive baseline, so the extractive answerer stays the gated baseline. What
-the harness exposed (not tuned away, since tuning the prompt on the same 25 questions would invalidate them):
-five answerable questions were refused even though retrieval supplied the right passage; three answers were
-wrong (a score stated as 1 where the source says 3; a duplicate-prevention answer naming the wrong
-components); one correct answer was cited to the wrong document, which citation precision caught. Lexical
-faithfulness is noisy when a model paraphrases, so the next step is a model-judged faithfulness metric and a
-larger local model, both measured on a held-out question set.
+\* lexical proxy; the extractive answerer scores 1.00 because it copies source sentences.
 
-Model size note: `qwen3:8b` was pulled to test whether the gap is model size, but this machine has 8 GB of RAM,
-so the 6 GB model runs partly on CPU and a one-word reply did not return in over three minutes. It was not
-usable here, so no 8B result is reported. `EVALS_GEN_MODEL` and `EVALS_TIMEOUT` select the generator and request
-timeout for anyone with more memory.
+What this shows, in the order it was learned:
+1. A small free-text model lost to the extractive baseline: it refused answerable questions, mis-cited
+   sources and stated a wrong number (a score of 1 where the source says 3).
+2. The 4B model was *worse* in free text, because in 14 of 22 answers it wrote out its reasoning instead of
+   an answer even with `think: false`, so most unanswerable questions were "answered" with rambling. Part of
+   that was a parsing contract problem. A fail-closed citation rule, added after seeing the results, moved
+   its abstention from 0.25 to 0.50; both are reported.
+3. Constraining the output to a schema fixed the contract problem and removed that failure mode. With it, the
+   larger model beat the baseline (0.92 vs 0.84) with perfect citation precision and no wrong answers: the two
+   remaining misses (`q06`, `q25`) are refusals, a safe way to fail.
+4. `qwen3:8b` was pulled but cannot run usefully on this 8 GB machine, so no 8B result is reported.
 
-### Model-size experiment (1.7B vs 4B) and a fail-closed rule
-
-Same retrieval, same prompt, `qwen3:4b` instead of `qwen3:1.7b`:
-
-| metric | extractive (baseline) | LLM 1.7B | LLM 4B |
-|---|---|---|---|
-| answer correct | **0.84** | 0.68 | 0.68 |
-| faithfulness (lexical) | **1.00** | 0.76 | 0.56 |
-| citation precision | 0.72 | **0.93** | 0.53 |
-| correct abstention (4 unanswerable) | 1.00 | 1.00 | 0.50 |
-| false abstention | **0.08** | 0.20 | 0.20 |
-
-The larger model was not better. In 14 of its 22 answers it wrote out its reasoning ("Hmm, the user is
-asking...") instead of the answer, even though `think: false` was sent, and the output limit cut that text off
-before any refusal or conclusion. Before any fix, 3 of 4 unanswerable questions were "answered" with rambling
-reasoning (abstention 0.25). I then added a fail-closed rule: output that cites no passage it was shown, or is
-only reasoning, counts as a refusal. That was added after seeing these results, so both sets of numbers are
-reported; it moved 4B abstention from 0.25 to 0.50 and left 1.7B unchanged. The remaining gap is an
-output-contract problem, not just model quality. The production fix is constrained output (a JSON schema via
-Ollama's `format` option, or an explicit no-think instruction) with the answer, citations and a refusal flag as
-separate fields; I have not done that yet and did not keep re-tuning the prompt on the same 25 questions.
+Limits: 25 answerable and 4 unanswerable questions, so one question moves a metric by 0.04 (answers) or 0.25
+(correct abstention); the structured prompt and schema were chosen after seeing free-text failures on the same
+questions, so these numbers are a regression guard, not an unbiased benchmark. Faithfulness is lexical.
+A held-out question set and a model-judged faithfulness metric are the next step. `EVALS_GEN_MODEL` and
+`EVALS_TIMEOUT` select the generator and request timeout.

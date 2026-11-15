@@ -78,7 +78,7 @@ def test_evaluation_is_deterministic():
 
 def test_current_system_passes_committed_baseline():
     baseline = _baseline()
-    assert check_against_baseline(evaluate(baseline["system"]), baseline) == []
+    assert check_against_baseline(evaluate(baseline["system"], answerer=baseline["answerer"]), baseline) == []
     assert main(["--check"]) == 0
 
 
@@ -92,18 +92,18 @@ def test_gate_fails_when_retrieval_is_broken():
 def test_gate_fails_when_answers_are_not_grounded():
     """Mutation check: an answerer that invents a claim must trip the faithfulness gate."""
     baseline = json.loads(BASELINE.read_text())
-    problems = check_against_baseline(evaluate(baseline["system"], hallucinate=True), baseline)
+    problems = check_against_baseline(evaluate(baseline["system"], answerer=baseline["answerer"], hallucinate=True), baseline)
     assert any(p.startswith("answer.faithfulness") for p in problems)
 
 
 def test_gate_flags_a_metric_missing_from_the_baseline():
-    report = evaluate(_baseline()["system"])
+    report = evaluate(_baseline()["system"], answerer=_baseline()["answerer"])
     baseline = {"metrics": {k: v for k, v in flatten(report["summary"]).items() if k != "retrieval.mrr"}}
     assert any("retrieval.mrr" in p for p in check_against_baseline(report, baseline))
 
 
 def test_unanswerable_questions_are_abstained_on():
-    report = evaluate(_baseline()["system"])
+    report = evaluate(_baseline()["system"], answerer=_baseline()["answerer"])
     assert report["summary"]["abstention"]["correct_rate"] == 1.0
 
 
@@ -199,3 +199,48 @@ def test_llm_answer_without_a_valid_citation_fails_closed():
 def test_think_blocks_are_stripped_before_citation_parsing():
     ans = _llm("<think>maybe [d09]</think>Linked at score 2 [d03].").answer("When are two findings linked?")
     assert ans.citations == ["d03"] and "think" not in ans.text
+
+
+# ---- structured output ---------------------------------------------------------------------
+
+def _structured(**fields):
+    base = {"refusal": False, "answer": "Linked at a score of 2.", "citations": ["d03"]}
+    return json.dumps({**base, **fields})
+
+
+def test_structured_answer_is_parsed_into_fields():
+    ans = _llm(_structured()).answer("When are two findings linked?")
+    assert not ans.abstained and ans.citations == ["d03"] and ans.text == "Linked at a score of 2."
+
+
+@pytest.mark.parametrize("payload", [
+    _structured(refusal=True),                       # explicit refusal
+    _structured(answer=""),                          # empty answer
+    _structured(citations=[]),                       # uncited claim
+    _structured(citations=["d99"]),                  # cites a passage that was never shown
+    _structured(citations=[["d03"]]),                # malformed citation entries
+    _structured(refusal="no"),                       # wrong type for the refusal flag
+    json.dumps({"refusal": False, "answer": "x"}),   # missing required field -> legacy path, no citation
+])
+def test_structured_output_fails_closed(payload):
+    ans = _llm(payload).answer("When are two findings linked?")
+    assert ans.abstained and ans.citations == []
+
+
+def test_structured_mode_sends_a_schema_to_the_model(monkeypatch):
+    from evals import ollama
+
+    seen = {}
+
+    def fake_post(path, payload, timeout=None):
+        seen.update(payload)
+        return {"message": {"content": _structured()}}
+
+    monkeypatch.setattr(ollama, "_post", fake_post)
+    monkeypatch.setattr(ollama.JsonCache, "get", lambda self, key: None)
+    monkeypatch.setattr(ollama.JsonCache, "put", lambda self, key, value: None)
+    ollama.LLMGenerator(structured=True).generate("q", [("d03", "text")])
+    assert seen["format"] == ollama.LLMGenerator.SCHEMA
+    seen.clear()
+    ollama.LLMGenerator(structured=False).generate("q", [("d03", "text")])
+    assert "format" not in seen
