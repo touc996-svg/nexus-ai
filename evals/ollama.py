@@ -20,6 +20,7 @@ CACHE_DIR = Path(__file__).parent / "cache"
 BASE_URL = os.getenv("EVALS_OLLAMA_URL", "http://localhost:11434")
 EMBED_MODEL = os.getenv("EVALS_EMBED_MODEL", "nomic-embed-text")
 RERANK_MODEL = os.getenv("EVALS_RERANK_MODEL", "qwen3:1.7b")
+GEN_MODEL = os.getenv("EVALS_GEN_MODEL", RERANK_MODEL)
 
 
 class CacheMiss(RuntimeError):
@@ -56,7 +57,8 @@ class JsonCache:
         self.dirty = False
 
 
-def _post(path: str, payload: dict, timeout: float = 120) -> dict:
+def _post(path: str, payload: dict, timeout: float | None = None) -> dict:
+    timeout = timeout or float(os.getenv("EVALS_TIMEOUT", "400"))
     req = urllib.request.Request(BASE_URL + path, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})
     try:
@@ -124,8 +126,8 @@ class LLMGenerator:
         "{passages}\n\nQuestion: {q}\nAnswer:"
     )
 
-    def __init__(self, model: str = RERANK_MODEL):
-        self.model, self.cache = model, JsonCache("generate.json")
+    def __init__(self, model: str | None = None):
+        self.model, self.cache = model or GEN_MODEL, JsonCache("generate.json")
 
     def generate(self, question: str, passages: list[tuple[str, str]]) -> str:
         block = "\n".join(f"[{i}] {t}" for i, t in passages)

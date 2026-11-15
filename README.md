@@ -329,3 +329,8 @@ wrong (a score stated as 1 where the source says 3; a duplicate-prevention answe
 components); one correct answer was cited to the wrong document, which citation precision caught. Lexical
 faithfulness is noisy when a model paraphrases, so the next step is a model-judged faithfulness metric and a
 larger local model, both measured on a held-out question set.
+
+Model size note: `qwen3:8b` was pulled to test whether the gap is model size, but this machine has 8 GB of RAM,
+so the 6 GB model runs partly on CPU and a one-word reply did not return in over three minutes. It was not
+usable here, so no 8B result is reported. `EVALS_GEN_MODEL` and `EVALS_TIMEOUT` select the generator and request
+timeout for anyone with more memory.
