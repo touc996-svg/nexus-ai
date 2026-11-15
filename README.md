@@ -269,3 +269,28 @@ This repository is part of a four-project engineering portfolio spanning data en
 - **NEXUS AI 0.7.0:** 70 passing local tests, 12/12 reported live integration checks, successful Qwen3 inference, 768-dimensional Nomic embeddings, and successful GitHub CI for commit `5c6a949`. RAG endpoints passed HTTP smoke tests; retrieval quality remains a separate validation item.
 
 Each project has its own architecture, setup instructions, tests and documented limitations. The repositories can be reviewed and run independently.
+
+## Evaluation harness (`evals/`)
+
+An offline, deterministic harness that measures retrieval and grounded answering against a golden dataset
+(13 documents, 25 answerable questions including paraphrased, hard and multi-document ones, plus 4
+unanswerable questions). No model calls and no network, so it runs in CI in under a second.
+
+```bash
+python -m evals.run --compare        # bm25 vs tf-idf vs hybrid (RRF), side by side
+python -m evals.run --check          # exit 1 if any metric regresses vs evals/baseline.json
+python -m evals.run --update-baseline
+```
+
+Metrics: hit@1, recall@3, MRR, nDCG@3 (retrieval); answer correctness, faithfulness (lexical support of the
+answer by its cited sources), citation precision (answers); correct and false abstention (unanswerable vs
+answerable questions). `tests/test_eval_harness.py` includes mutation checks: a deliberately broken retriever
+and a deliberately hallucinating answerer must each trip the gate.
+
+Current baseline (hybrid): hit@1 0.88, recall@3 0.92, MRR 0.91, answer correct 0.84, faithfulness 1.00,
+correct abstention 1.00, false abstention 0.08.
+
+Known limits, stated plainly: on this small lexical corpus BM25, TF-IDF and hybrid score the same, so the
+hybrid has not yet shown a benefit. The four failing questions are vocabulary-gap or multi-document cases that
+lexical search cannot solve; dense embeddings and a reranker are the next step. Faithfulness is a lexical
+proxy, not a model-judged measure.

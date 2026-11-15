@@ -1,0 +1,29 @@
+{"id": "q01", "question": "What does the common schema keep next to the normalized fields?", "relevant": ["d01"], "answer_keywords": ["raw provider payload"], "answerable": true, "difficulty": "easy"}
+{"id": "q02", "question": "Which providers does AEGIS-X ingest findings from?", "relevant": ["d01"], "answer_keywords": ["GuardDuty", "Sentinel"], "answerable": true, "difficulty": "easy"}
+{"id": "q03", "question": "How are duplicate findings collapsed?", "relevant": ["d02"], "answer_keywords": ["deterministic"], "answerable": true, "difficulty": "easy"}
+{"id": "q04", "question": "Why does Security Hub record related_finding_ids?", "relevant": ["d02"], "answer_keywords": ["GuardDuty"], "answerable": true, "difficulty": "easy"}
+{"id": "q05", "question": "What time window is used to correlate findings?", "relevant": ["d03"], "answer_keywords": ["120"], "answerable": true, "difficulty": "easy"}
+{"id": "q06", "question": "How much does a shared resource add to the correlation score?", "relevant": ["d03"], "answer_keywords": ["3"], "answerable": true, "difficulty": "easy"}
+{"id": "q07", "question": "When are two findings linked?", "relevant": ["d03"], "answer_keywords": ["at least 2"], "answerable": true, "difficulty": "easy"}
+{"id": "q08", "question": "What happens if the same event is delivered twice?", "relevant": ["d04"], "answer_keywords": ["overwrites"], "answerable": true, "difficulty": "paraphrase"}
+{"id": "q09", "question": "Which timestamp changes when events are replayed?", "relevant": ["d04"], "answer_keywords": ["ingested_at"], "answerable": true, "difficulty": "easy"}
+{"id": "q10", "question": "What score range counts as High severity in GuardDuty?", "relevant": ["d05"], "answer_keywords": ["7 to 8.9"], "answerable": true, "difficulty": "easy"}
+{"id": "q11", "question": "What is the Critical severity threshold?", "relevant": ["d05"], "answer_keywords": ["9"], "answerable": true, "difficulty": "easy"}
+{"id": "q12", "question": "How does the project stop paid cloud services from being created by accident?", "relevant": ["d06"], "answer_keywords": ["defaults to false"], "answerable": true, "difficulty": "hard"}
+{"id": "q13", "question": "What does the Terraform policy test check about master switches?", "relevant": ["d06"], "answer_keywords": ["defaults to true"], "answerable": true, "difficulty": "easy"}
+{"id": "q14", "question": "Which S3 bucket protections are required?", "relevant": ["d07"], "answer_keywords": ["KMS", "versioning"], "answerable": true, "difficulty": "easy"}
+{"id": "q15", "question": "Is the account level public access block protected from deletion?", "relevant": ["d07"], "answer_keywords": ["prevent_destroy"], "answerable": true, "difficulty": "paraphrase"}
+{"id": "q16", "question": "How is administrator access handled without root credentials?", "relevant": ["d08"], "answer_keywords": ["Identity Center"], "answerable": true, "difficulty": "paraphrase"}
+{"id": "q17", "question": "What does the read only verification script check?", "relevant": ["d08"], "answer_keywords": ["MFA"], "answerable": true, "difficulty": "easy"}
+{"id": "q18", "question": "Which agent domains does NEXUS AI have?", "relevant": ["d09"], "answer_keywords": ["enterprise", "personal", "cybersecurity"], "answerable": true, "difficulty": "easy"}
+{"id": "q19", "question": "What does the decision engine assign?", "relevant": ["d09"], "answer_keywords": ["priority"], "answerable": true, "difficulty": "easy"}
+{"id": "q20", "question": "Can the NEXUS cybersecurity agent execute response actions?", "relevant": ["d10"], "answer_keywords": ["no ability to execute"], "answerable": true, "difficulty": "paraphrase"}
+{"id": "q21", "question": "Where are document chunks stored and which embedding model is used?", "relevant": ["d11"], "answer_keywords": ["Qdrant", "nomic-embed-text"], "answerable": true, "difficulty": "easy"}
+{"id": "q22", "question": "What is the default minimum similarity score?", "relevant": ["d11"], "answer_keywords": ["0.15"], "answerable": true, "difficulty": "easy"}
+{"id": "q23", "question": "How were the tests verified to be able to fail?", "relevant": ["d12"], "answer_keywords": ["mutation"], "answerable": true, "difficulty": "hard"}
+{"id": "q24", "question": "Why did the real GuardDuty findings fail normalization at first?", "relevant": ["d13"], "answer_keywords": ["PascalCase"], "answerable": true, "difficulty": "easy"}
+{"id": "q25", "question": "Which two mechanisms prevent duplicate data in AEGIS-X?", "relevant": ["d02", "d04"], "answer_keywords": ["deterministic", "overwrites"], "answerable": true, "difficulty": "multi_hop"}
+{"id": "u01", "question": "What is the monthly AWS bill for the project?", "relevant": [], "answer_keywords": [], "answerable": false, "difficulty": "unanswerable"}
+{"id": "u02", "question": "Which Kubernetes version does the cluster run?", "relevant": [], "answer_keywords": [], "answerable": false, "difficulty": "unanswerable"}
+{"id": "u03", "question": "Who founded the company that makes the database?", "relevant": [], "answer_keywords": [], "answerable": false, "difficulty": "unanswerable"}
+{"id": "u04", "question": "What GPU is used to fine-tune the model?", "relevant": [], "answer_keywords": [], "answerable": false, "difficulty": "unanswerable"}
