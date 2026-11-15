@@ -18,6 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--check", action="store_true", help="fail (exit 1) if metrics regress vs baseline.json")
     p.add_argument("--update-baseline", action="store_true", help="write the selected system's metrics as the baseline")
     p.add_argument("--answerer", default=None, choices=["extractive", "llm"])
+    p.add_argument("--split", default="dev", choices=["dev", "heldout"])
     p.add_argument("--tolerance", type=float, default=0.02)
     p.add_argument("--output", type=Path, help="write the full JSON report here")
     p.add_argument("--compare", action="store_true", help="print a side-by-side of every system")
@@ -35,7 +36,9 @@ def main(argv: list[str] | None = None) -> int:
     base = json.loads(BASELINE.read_text()) if BASELINE.exists() else {}
     system = args.system or base.get("system", "hybrid")
     answerer = args.answerer or base.get("answerer", "extractive")
-    report = evaluate(system, answerer=answerer)
+    if args.split != "dev" and (args.check or args.update_baseline):
+        p.error("--check and --update-baseline apply to the dev split only; the held-out split is never tuned against")
+    report = evaluate(system, answerer=answerer, split=args.split)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2) + "\n")

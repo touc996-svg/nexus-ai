@@ -44,6 +44,10 @@ class JsonCache:
     def put(self, key, value):
         self.data[key] = value
         self.dirty = True
+        self.pending = getattr(self, "pending", 0) + 1
+        if self.pending >= 5:  # checkpoint so an interrupted run keeps its completed work
+            self.flush()
+            self.pending = 0
 
     def flush(self):
         if not self.dirty:

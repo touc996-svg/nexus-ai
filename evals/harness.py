@@ -31,9 +31,14 @@ def load_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def load_dataset(data_dir: Path = DATA) -> tuple[dict[str, str], list[dict]]:
+SPLITS = {"dev": "questions.jsonl", "heldout": "heldout.jsonl"}
+
+
+def load_dataset(data_dir: Path = DATA, split: str = "dev") -> tuple[dict[str, str], list[dict]]:
+    if split not in SPLITS:
+        raise ValueError(f"unknown split {split!r}; choose from {sorted(SPLITS)}")
     corpus = {d["id"]: d["text"] for d in load_jsonl(data_dir / "corpus.jsonl")}
-    return corpus, load_jsonl(data_dir / "questions.jsonl")
+    return corpus, load_jsonl(data_dir / SPLITS[split])
 
 
 def validate_dataset(corpus: dict[str, str], questions: list[dict]) -> None:
@@ -55,8 +60,8 @@ def _avg(values: list[float]) -> float:
 
 
 def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path = DATA,
-             answerer: str = "extractive") -> dict:
-    corpus, questions = load_dataset(data_dir)
+             answerer: str = "extractive", split: str = "dev") -> dict:
+    corpus, questions = load_dataset(data_dir, split)
     validate_dataset(corpus, questions)
     retriever = build_system(system, corpus)
     if answerer not in ("extractive", "llm"):
@@ -116,6 +121,7 @@ def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path =
     return {
         "system": system,
         "answerer": answerer,
+        "split": split,
         "hallucinating_answerer": hallucinate,
         "counts": {"answerable": len(ans_rows), "unanswerable": len(unans_rows), "documents": len(corpus)},
         "summary": summary,

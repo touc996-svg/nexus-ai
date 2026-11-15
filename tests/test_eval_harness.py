@@ -244,3 +244,32 @@ def test_structured_mode_sends_a_schema_to_the_model(monkeypatch):
     seen.clear()
     ollama.LLMGenerator(structured=False).generate("q", [("d03", "text")])
     assert "format" not in seen
+
+
+# ---- held-out split: disjoint from dev, frozen, replayable ---------------------------------
+
+def test_heldout_questions_are_disjoint_from_dev_and_valid():
+    corpus, dev = load_dataset(split="dev")
+    _, held = load_dataset(split="heldout")
+    validate_dataset(corpus, held)
+    assert not {q["question"].lower() for q in dev} & {q["question"].lower() for q in held}
+    assert not {q["id"] for q in dev} & {q["id"] for q in held}
+    assert sum(not q["answerable"] for q in held) >= 5
+
+
+def test_heldout_replays_offline_and_matches_the_recorded_single_run(monkeypatch):
+    """The recorded report is the one-time result; a replay must reproduce it exactly."""
+    import urllib.request
+    from pathlib import Path
+
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("network call attempted")))
+    recorded = json.loads((Path(__file__).resolve().parents[1] / "evals" / "heldout_report.json").read_text())
+    base = _baseline()
+    replay = evaluate(base["system"], answerer=base["answerer"], split="heldout")
+    assert replay["summary"] == recorded["summary"]
+
+
+def test_heldout_cannot_be_used_to_set_or_gate_a_baseline(capsys):
+    with pytest.raises(SystemExit):
+        main(["--split", "heldout", "--update-baseline"])
