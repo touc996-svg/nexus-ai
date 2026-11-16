@@ -32,7 +32,7 @@ def build_app(monkeypatch, **environment):
 
 
 def test_production_requires_api_key(monkeypatch):
-    with pytest.raises(RuntimeError, match="NEXUS_API_KEY is required"):
+    with pytest.raises(RuntimeError, match="NEXUS_API_KEY or NEXUS_API_KEYS is required"):
         build_app(monkeypatch, APP_ENV="production")
 
 

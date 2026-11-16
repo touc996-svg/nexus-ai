@@ -239,14 +239,33 @@ the existing project architecture:
 See [`docs/UPGRADE_NOTES.md`](docs/UPGRADE_NOTES.md) for exact behavior and
 security boundaries.
 
-### Important identity boundary
+### Identity and tenant isolation
 
-`NEXUS_API_KEY` is a shared service credential, not a per-user identity token.
-Request-supplied `user_id` and `session_id` values are not cryptographically
-bound to a verified principal. Persistent profile, memory, and per-user RAG
-features must remain in a trusted local or single-operator environment until
-OIDC/JWT identity and per-user authorization are implemented. Do not describe
-the current system as a multi-tenant production service.
+Two kinds of credential are supported (both sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`):
+
+- **Per-user keys** (`NEXUS_API_KEYS="key1=alice,key2=bob"`, keys of at least 24 characters, no reuse). A request
+  authenticated with one of these acts only as that user. Naming another user's `user_id` on `/profile`,
+  `/knowledge/*` or `/chat` returns 403. Chat and memory `session_id`s are stored in a per-user namespace, so two
+  users can use the same session name without seeing each other's messages. Scoped users search only their own
+  knowledge; the shared `system` pool is not visible to them.
+- **Operator key** (`NEXUS_API_KEY`, unchanged). This is an administrator credential with access to every user's
+  data, as before. Existing single-key deployments keep working but do not gain isolation; hand per-user keys to
+  end users and keep the operator key private.
+
+Tested with 18 tests through the real routes and middleware (`tests/test_tenant_isolation.py`), and mutation-checked:
+removing the session namespace, trusting the client's `user_id`, or failing open each makes tests fail.
+If authentication is required and no identity is present, the request is refused.
+
+Known limits, stated plainly:
+
+- Keys live in environment variables: no rotation, expiry, revocation list or key hashing. OIDC/JWT is the
+  production answer and is not implemented.
+- Sessions and profiles created before this change are reachable only with the operator key (a scoped user's
+  sessions are stored under a new namespace). Migrating old data is manual.
+- With authentication switched off (local development, public demo mode) there is no identity and no
+  enforcement. Never put real data behind that mode.
+- The rate limiter is still per-process and keyed by client address, and the activity log is global (it holds
+  agent names, durations and error text, not user content).
 
 ---
 

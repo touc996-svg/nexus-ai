@@ -3,7 +3,7 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -13,6 +13,7 @@ from app.core.memory import memory
 from app.core.router import router
 from app.core.activity import activity_logger
 from app.core.conversation import conversation_engine
+from app.security.identity import Principal, get_principal, resolve_user_id, scope_session_id
 
 
 DEMO_MODE = os.getenv("NEXUS_DEMO_MODE", "false").lower() in {
@@ -151,8 +152,9 @@ def memory_status():
 # SAVE MEMORY
 
 @app.post("/memory/{session_id}")
-def save_memory(session_id: str, request: MemoryRequest):
+def save_memory(session_id: str, request: MemoryRequest, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
+    storage_session = scope_session_id(principal, session_id)
 
     if request.role not in ["user", "assistant", "system"]:
         raise HTTPException(
@@ -161,7 +163,7 @@ def save_memory(session_id: str, request: MemoryRequest):
         )
 
     result = memory.add_message(
-        session_id,
+        storage_session,
         request.role,
         request.content
     )
@@ -176,20 +178,20 @@ def save_memory(session_id: str, request: MemoryRequest):
 # RETRIEVE MEMORY
 
 @app.get("/memory/{session_id}")
-def get_memory(session_id: str):
+def get_memory(session_id: str, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
     return {
         "session_id": session_id,
-        "history": memory.get_history(session_id)
+        "history": memory.get_history(scope_session_id(principal, session_id))
     }
 
 
 # DELETE MEMORY
 
 @app.delete("/memory/{session_id}")
-def delete_memory(session_id: str):
+def delete_memory(session_id: str, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
-    deleted = memory.clear_history(session_id)
+    deleted = memory.clear_history(scope_session_id(principal, session_id))
 
     return {
         "session_id": session_id,
@@ -201,8 +203,9 @@ def delete_memory(session_id: str):
 # USER PROFILE / PERSONALIZATION
 
 @app.get("/profile/{user_id}")
-def get_profile(user_id: str):
+def get_profile(user_id: str, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
+    user_id = resolve_user_id(principal, user_id)
     profile = memory.get_profile(user_id)
 
     if profile is None:
@@ -212,8 +215,9 @@ def get_profile(user_id: str):
 
 
 @app.put("/profile/{user_id}")
-def update_profile(user_id: str, request: ProfileRequest):
+def update_profile(user_id: str, request: ProfileRequest, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
+    user_id = resolve_user_id(principal, user_id)
     updates = request.model_dump(exclude_unset=True)
 
     if not updates:
@@ -229,8 +233,9 @@ def update_profile(user_id: str, request: ProfileRequest):
 
 
 @app.delete("/profile/{user_id}")
-def delete_profile(user_id: str):
+def delete_profile(user_id: str, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
+    user_id = resolve_user_id(principal, user_id)
     deleted = memory.delete_profile(user_id)
     return {
         "user_id": user_id,
@@ -324,24 +329,29 @@ from app.services.profile_learning import profile_learning
 # CONVERSATION INTELLIGENCE
 
 @app.post("/chat")
-def chat(request: ChatRequest):
+def chat(request: ChatRequest, principal: Principal = Depends(get_principal)):
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
+    # Bind the request to the authenticated user: a scoped caller acts only as themselves,
+    # and their conversation lives in a per-user session namespace.
+    effective_user_id = resolve_user_id(principal, request.user_id)
+    storage_session = scope_session_id(principal, request.session_id)
+
     history = (
-        [] if DEMO_MODE else memory.get_history(request.session_id)
+        [] if DEMO_MODE else memory.get_history(storage_session)
     )
 
     saved_profile = (
-        memory.get_profile(request.user_id)
-        if request.user_id and not DEMO_MODE else None
+        memory.get_profile(effective_user_id)
+        if effective_user_id and not DEMO_MODE else None
     )
     user_profile = (
         saved_profile.get("profile", {})
         if saved_profile else {}
     )
 
-    if request.user_id and not DEMO_MODE:
+    if effective_user_id and not DEMO_MODE:
         profile_updates = profile_learning.extract_updates(
             request.message,
             user_profile
@@ -352,13 +362,13 @@ def chat(request: ChatRequest):
                 user_profile,
                 profile_updates
             )
-            memory.update_profile(request.user_id, user_profile)
+            memory.update_profile(effective_user_id, user_profile)
 
     knowledge_context = []
     try:
         knowledge_context = rag.search(
             query=request.message,
-            user_id=request.user_id or "system",
+            user_id=effective_user_id or "system",
             limit=5
         )
     except Exception as exc:
@@ -387,7 +397,7 @@ def chat(request: ChatRequest):
     )
 
     if not DEMO_MODE:
-        memory.add_message(request.session_id, "user", request.message)
+        memory.add_message(storage_session, "user", request.message)
 
     intent = understanding["intent_type"]
 
@@ -441,7 +451,7 @@ def chat(request: ChatRequest):
         }
 
     if not DEMO_MODE:
-        memory.add_message(request.session_id, "assistant", output["response"])
+        memory.add_message(storage_session, "assistant", output["response"])
     return output
 
 

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from app import main
+from app.security.identity import UNAUTHENTICATED
 
 
 class TestChatPersonalizationFlow(unittest.TestCase):
@@ -57,7 +58,8 @@ class TestChatPersonalizationFlow(unittest.TestCase):
                     message="Help me plan my career",
                     session_id="personalization-test",
                     user_id="nexus-personalization-test"
-                )
+                ),
+                principal=UNAUTHENTICATED,
             )
 
         mock_agent.assert_called_once_with(
