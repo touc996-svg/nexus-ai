@@ -19,9 +19,11 @@ validation of free-text model output.
 Nothing here needs or contacts a model: every agent ``run`` is a recorder, the conversation engine and retrieval
 are recorders, and a real outbound HTTP request (which is how a model or embedding call is made) raises.
 """
+import importlib
 from types import SimpleNamespace
 
 import httpx
+import openai
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -33,6 +35,21 @@ MAX_MESSAGE_CHARS = 5000
 ENV_KEYS = ("NEXUS_DEMO_MODE", "APP_ENV", "NEXUS_API_KEY", "NEXUS_API_KEYS", "NEXUS_REQUIRE_API_KEY")
 AGENT_REQUEST_ENDPOINTS = ("/agents/enterprise", "/team", "/auto")
 WHITESPACE_ONLY = " \t\n  "
+
+
+def _http_libraries():
+    """The HTTP client libraries that can reach the network.
+
+    The app calls httpx directly (embeddings, health checks). The OpenAI SDK, and so every model call, is built on
+    httpx2 in current releases, and so is Starlette's test client; the test client uses its own in-process
+    transport, which is not an HTTPTransport, so patching HTTPTransport leaves it alone.
+    """
+    libraries = [httpx]
+    try:
+        libraries.append(importlib.import_module("httpx2"))
+    except ImportError:
+        pass
+    return libraries
 
 
 class _NullActivitySink:
@@ -110,7 +127,8 @@ def harness(monkeypatch):
         calls.outbound_http.append(request.url.host)
         raise AssertionError("an outbound HTTP request was attempted")
 
-    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", forbid_network)
+    for library in _http_libraries():
+        monkeypatch.setattr(library.HTTPTransport, "handle_request", forbid_network)
 
     api = FastAPI()
     api.router.routes.extend(main.app.router.routes)  # the real production routes
@@ -182,11 +200,16 @@ def test_no_schema_invalid_request_reaches_an_agent_or_a_model(harness):
 
 
 def test_the_outbound_http_tripwire_is_live(harness):
-    # Self-test of the fixture: if any code under test tried to reach a model over HTTP, it would be recorded
-    # and raise. The request below never leaves the process; the tripwire stops it first.
-    with pytest.raises(AssertionError, match="outbound HTTP request"):
-        httpx.post("http://127.0.0.1:9/never-sent", json={})
-    assert harness.calls.outbound_http == ["127.0.0.1"]
+    # Self-test of the fixture: every real network path a model or embedding call can take is recorded and refused
+    # before anything leaves the process. Each HTTP library is tried directly, and so is the OpenAI SDK itself,
+    # which is what the agents use for model calls.
+    for library in _http_libraries():
+        with pytest.raises(AssertionError, match="outbound HTTP request"):
+            library.post("http://127.0.0.1:9/never-sent", json={})
+    sdk = openai.OpenAI(base_url="http://127.0.0.1:9/v1", api_key="unused", max_retries=0)
+    with pytest.raises((AssertionError, openai.APIConnectionError)):  # the SDK may or may not wrap the refusal
+        sdk.models.list()
+    assert harness.calls.outbound_http == ["127.0.0.1"] * (len(_http_libraries()) + 1)
 
 
 # ---- positive controls: exactly 5000 characters is accepted and does reach the stubs -------------
