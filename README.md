@@ -252,8 +252,12 @@ Two kinds of credential are supported (both sent as `Authorization: Bearer <key>
   data, as before. Existing single-key deployments keep working but do not gain isolation; hand per-user keys to
   end users and keep the operator key private.
 
-Tested with 18 tests through the real routes and middleware (`tests/test_tenant_isolation.py`), and mutation-checked:
-removing the session namespace, trusting the client's `user_id`, or failing open each makes tests fail.
+`tests/test_tenant_isolation.py` has 20 tests. Eight exercise cross-user isolation through the real routes and
+middleware (memory, profile, knowledge and chat); two check the boundary controls (a user may name themselves, the
+operator key stays unrestricted); two check authentication behaviour through the middleware (unauthenticated, wrong
+and non-ASCII credentials); and eight are unit tests of key-configuration validation and the fail-closed rule.
+The isolation tests were mutation-checked by hand (not automated in CI): removing the session namespace, trusting the
+client's `user_id`, or failing open each makes tests fail.
 If authentication is required and no identity is present, the request is refused.
 
 Known limits, stated plainly:
