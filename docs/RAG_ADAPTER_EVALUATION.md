@@ -83,7 +83,7 @@ Columns: answer correct, citation precision, lexical faithfulness, correct abste
 What the numbers support, and what they do not:
 - Production dense retrieval performs about like the offline lexical systems on this corpus (on held-out it equals BM25 exactly). Against the offline dense baseline, which adds `nomic-embed-text` task prefixes that production does not, the evidence is mixed: on dev the prefixed baseline found relevant documents production missed on two questions (Recall@3 0.980 vs 0.900), while on held-out production did better (Hit@1 0.905 vs 0.857, Recall@3 0.976 vs 0.952). Each gap is one or two questions, so no conclusion about prefixes can be drawn from this corpus, and changing production embedding behaviour would belong in its own change.
 - Reranking the production results helped top-1 on both splits; the answer-level differences between systems are within one or two questions.
-- Faithfulness is a lexical proxy. The corpus has 13 short documents and I wrote both question sets, so these are regression guards, not an independent benchmark.
+- Faithfulness is a lexical proxy. The corpus has 13 short documents. The documents and both question sets were generated with AI assistance during development, under the repository owner's direction, so this is an internally developed dataset and these results are regression guards, not an independent external benchmark.
 
 ### Latency and memory
 
@@ -130,7 +130,7 @@ field, with inference blocked. The 15 original report and configuration fingerpr
 
 - Qdrant server integration was **not** tested (local client only).
 - Hybrid and reranking are harness experiments, not production features.
-- Small corpus, one author for both question sets, lexical faithfulness; results are regression guards, not benchmarks.
+- Small corpus; the documents and both question sets were generated with AI assistance during development under the repository owner's direction (an internally developed dataset, not an independent external benchmark); lexical faithfulness. Results are regression guards, not benchmarks.
 - Latency is not representative of a networked Qdrant, and embedding latency is recorded rather than re-measured on replay.
 - Production embeds raw text without the task prefixes `nomic-embed-text` documents. Whether that affects retrieval quality is unresolved: the dev and held-out comparisons point in opposite directions, each by one or two questions.
 

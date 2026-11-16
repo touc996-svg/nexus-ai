@@ -386,16 +386,17 @@ Reading it honestly:
   says the held-out set is easier for retrieval, not that retrieval is solved.
 - The four misses: two false refusals (`h03` "maximum gap in minutes", `h10` "keys staying unchanged", both
   vocabulary-gap paraphrases), one answer that is substantively right but did not contain the expected phrase
-  "connected components" (`h04`, a strict keyword check, not a model error; I left the keyword unchanged
-  rather than adjust it after seeing the result), and one multi-document question answered from only one
+  "connected components" (`h04`, a strict keyword check, not a model error; the keyword was left unchanged
+  rather than adjusted after seeing the result), and one multi-document question answered from only one
   of the two documents (`h20`).
 - No unanswerable question was answered. Reading all 19 answers that were given, none states a clearly false
   fact, but `h21` is imprecise (it says the agent "cannot execute actions without human approval", implying it
   could with approval, where the source says it has no ability to execute actions at all), and two answers
   contain text glitches ("NEX:US", "Oll"). The lexical faithfulness score did not flag these; a model-judged
   metric might.
-- 27 questions on one 13-document corpus is still small, and I wrote both sets, so this is not an
-  independent benchmark.
+- 27 questions on one 13-document corpus is still small. The corpus documents and both question sets were
+  generated with AI assistance during development, under the repository owner's direction, so this is an
+  internally developed dataset and not an independent external benchmark.
 
 ### Evaluating the real NexusRAG
 
