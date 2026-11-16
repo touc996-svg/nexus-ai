@@ -65,6 +65,7 @@ wider authentication and authorization story is not finished. It is deliberately
 | Isolation is opt-in | PARTIALLY IMPLEMENTED | per-user keys come from `NEXUS_API_KEYS`; a deployment that sets only the legacy `NEXUS_API_KEY` gets an **operator** principal with access to every user's data |
 | Authentication switched off (local development, public demo mode) | PARTIALLY IMPLEMENTED | no identity and no enforcement by design; must never hold real data |
 | System-level routes (AEGIS-X x6, `/system/*` x4, `/activity`, `/activity/summary`, `/dashboard/activity`, `/memory/status`, `/decision-engine/status`) require administrator credentials | VERIFIED COMPLETE for scoped keys | `require_admin` (`app/security/identity.py`), declared on the AEGIS-X and observability routers and on five handlers in `app/main.py`; `tests/test_authorization_roles.py` (55 test cases): 401 without a credential, 403 for a scoped key, 200 for the operator key, and a guard that fails when any route has no authorization decision; mutation-checked on a scratch copy (12 of 12 mutants caught). **Breaking change** for clients that used a scoped key on these routes |
+| API keys with expiry, revocation and rotation (opt-in key store, `NEXUS_KEYSTORE_ENABLED`) | VERIFIED COMPLETE for stored keys; environment keys unchanged | `app/security/keystore.py`: server-generated `nxk_` keys, SHA-256 digest only, mandatory expiry of 1 to 366 days, immediate revocation, overlap rotation that never lengthens the old key, role `user` by default; wired into the middleware after the environment keys, with a 503 fail-closed path; `tests/test_keystore.py` (58 test cases); mutation-checked on a scratch copy (27 of 27 mutants caught). Enabling the store turns authentication on (an environment key is still required), so it cannot be left off by the development default. Command-line management only; one SQL table; the environment keys remain plaintext and non-expiring |
 
 Residual exposures that PR #4 did not close (read from the code, not exploited):
 - The `/integrations/aegis-x/*` routes (6) had no identity dependency, so any authenticated key, scoped or operator, read the same organisation-wide findings; `/activity`, `/activity/summary` and `/system/*` were global (the activity log holds agent names, durations and error text, not user content). **Closed for scoped keys by the role gate on this branch** (row "System-level routes" in the table above). The data stays deployment-wide: these routes are administrator-only, not per-user views.
@@ -75,7 +76,7 @@ Residual exposures that PR #4 did not close (read from the code, not exploited):
 | Capability | Status |
 |---|---|
 | OIDC / JWT identity | NOT STARTED |
-| API-key rotation, expiry and revocation (keys are environment variables) | NOT STARTED |
+| API-key rotation, expiry and revocation | PARTIALLY IMPLEMENTED: available for stored keys (opt-in key store); the environment keys are still plaintext, non-expiring and changed only by redeploying; there is no managed secret store or KMS, and management is by command line |
 | Roles or permissions beyond "scoped user" and "operator" | PARTIALLY IMPLEMENTED: two roles (`admin`, `user`) now gate the system-level routes; there are no finer permissions, per-route scopes or role claims from an identity provider |
 | Rate limiting | PARTIALLY IMPLEMENTED: a sliding-window limiter exists, but it is per process and keyed by the client address (`request.client.host`), so it is neither shared across workers nor per identity, and clients behind a proxy share one key |
 
@@ -116,7 +117,7 @@ Residual exposures that PR #4 did not close (read from the code, not exploited):
 
 | Check | Result | How verified |
 |---|---|---|
-| Full offline suite | 265 passed, 1 skipped, 0 failed (266 collected) | run locally with model inference blocked, at the head of this branch: `main` @ `39acbec` plus `tests/test_api_input_validation.py` (22 test cases), the role gate and `tests/test_authorization_roles.py` (55 test cases); it was 188 passed, 1 skipped (189 collected) on `main` @ `39acbec` |
+| Full offline suite | 323 passed, 1 skipped, 0 failed (324 collected) | run locally with model inference blocked, at the head of this branch: `main` @ `39acbec` plus `tests/test_api_input_validation.py` (22 test cases), the role gate and `tests/test_authorization_roles.py` (55), the key store and `tests/test_keystore.py` (58); it was 188 passed, 1 skipped (189 collected) on `main` @ `39acbec` |
 | The skipped test | `test_against_a_real_qdrant_server` | needs `EVALS_QDRANT_URL` |
 | Evaluation gate and frozen configuration | pass | `python -m evals.run --check`, `python -m evals.freeze_nexus_config --check` |
 | CI on the PR #5 head (`f9234e1`) | Python 3.11 and 3.12: 188 passed, 1 skipped, "quality gate passed"; Docker build success | read from the CI run logs |
@@ -144,7 +145,7 @@ Evaluation limitations (every one applies to the numbers in `docs/RAG_ADAPTER_EV
 - **L5. Production `NexusRAG` remains dense-only.**
 - **L6. Hybrid retrieval and LLM reranking are experimental evaluation-harness features, not production capabilities.** Their rows in the reports fuse or rerank production dense results inside the harness.
 - **L7. Tenant isolation does not mean complete authentication and authorization** (section 2.1): isolation is opt-in and the operator key is unrestricted. AEGIS-X, activity and system routes are administrator-only but return deployment-wide data, not per-user views.
-- **L8. OIDC/JWT, key rotation and revocation, and shared or per-identity rate limiting remain outstanding.**
+- **L8. OIDC/JWT and shared or per-identity rate limiting remain outstanding.** Key rotation, expiry and revocation exist only for stored keys (opt-in); the environment keys have none.
 - **L9. Eight exploratory cache workload combinations remain unreplayable, and cleanup refuses to prune.** They are: dev `dense` and `broken` with the LLM answerer; held-out `bm25`, `tfidf`, `hybrid`, `dense`, `hybrid_dense` and `broken` with the LLM answerer. No test and no recorded report uses them and most were never computed. `python -m evals.prune_cache` exits 1 and changes nothing until the workload is narrowed to what tests and reports use. This is a known cleanup limitation, not a data-integrity issue; it is not addressed here.
 - **L10. Whether embedding without `nomic-embed-text` task prefixes affects quality is unresolved:** dev and held-out comparisons point in opposite directions by one or two questions.
 
@@ -229,7 +230,7 @@ The layer table and the API-boundary rows of section A were added later, on top 
 2. **Pin dependencies; add lint, type, dependency-audit and secret scanning to CI** (S5, Q1; unblocks `pip-audit`). Triage the 13 mypy errors first.
 3. **Keep `docs/UPGRADE_NOTES.md` aligned with the identity model.** Its identity paragraph was reconciled with the PR #4 behaviour in PR #8; re-check it whenever the identity model changes.
 4. **Run the Qdrant server test** (needs Docker running and a Qdrant container) to turn the "IMPLEMENTED BUT NOT VERIFIED" row into a verified one or a documented failure.
-5. **Complete authentication and authorization:** the AEGIS-X and global routes are now administrator-only (done on this branch); remaining: OIDC/JWT; key rotation and revocation; identity-aware and shared rate limiting.
+5. **Complete authentication and authorization:** the AEGIS-X and global routes are now administrator-only, and stored keys can expire, be revoked and be rotated (both done on this branch); remaining: OIDC/JWT; identity-aware and shared rate limiting.
 6. **Phase 3, AI security hardening** (S2): prompt-injection and indirect-injection tests, PII handling, output validation, red-team suite, tool permission boundaries. Not started by this update.
 7. Production RAG improvements (hybrid, reranking, cited answers with abstention), then orchestration and approval gates, observability, multimodal, deployment hardening. Use the evaluation harness to decide which retrieval changes actually help, noting L1 to L3.
 

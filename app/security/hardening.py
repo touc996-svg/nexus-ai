@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Deque
 
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
@@ -44,6 +45,7 @@ class SecuritySettings:
     cors_origins: tuple[str, ...]
     rate_limit_per_minute: int
     max_request_bytes: int
+    keystore_enabled: bool = False
 
 
 MIN_USER_KEY_LENGTH = 24
@@ -102,7 +104,10 @@ def load_security_settings() -> SecuritySettings:
         os.getenv("NEXUS_REQUIRE_API_KEY"), default_required
     )
     user_keys = parse_user_keys(os.getenv("NEXUS_API_KEYS", ""), api_key)
-    if (api_key or user_keys) and not demo_mode:
+    keystore_enabled = _as_bool(os.getenv("NEXUS_KEYSTORE_ENABLED"), False)
+    # Turning the key store on means the operator wants authentication: it must not be left off by the
+    # development default. An environment key is still required (the break-glass credential), checked below.
+    if (api_key or user_keys or keystore_enabled) and not demo_mode:
         require_api_key = True
     if require_api_key and not api_key and not user_keys and not demo_mode:
         raise RuntimeError(
@@ -132,6 +137,7 @@ def load_security_settings() -> SecuritySettings:
         cors_origins=origins,
         rate_limit_per_minute=rate_limit,
         max_request_bytes=max_request_bytes,
+        keystore_enabled=keystore_enabled,
     )
 
 
@@ -174,11 +180,21 @@ class SlidingWindowRateLimiter:
             return True, 0, max(0, self.limit - len(events))
 
 
-def install_security(app) -> None:
-    """Install authentication, request limits, response headers and CORS."""
+def install_security(app, key_store=None) -> None:
+    """Install authentication, request limits, response headers and CORS.
+
+    ``key_store`` is a persistent key store (app/security/keystore.py). One is created when
+    ``NEXUS_KEYSTORE_ENABLED`` is true; an explicitly supplied store is always honoured. It is consulted only after
+    the environment keys, and only for ``nxk_`` keys.
+    """
     settings = load_security_settings()
     limiter = SlidingWindowRateLimiter(settings.rate_limit_per_minute)
     app.state.security_settings = settings
+    if key_store is None and settings.keystore_enabled:
+        # imported on demand: constructing the store opens the application database
+        from app.security.keystore import KeyStore
+
+        key_store = KeyStore()
 
     @app.middleware("http")
     async def nexus_security_middleware(request: Request, call_next):
@@ -238,6 +254,16 @@ def install_security(app) -> None:
             bearer = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
             supplied_key = bearer or request.headers.get("x-api-key", "").strip()
             principal = authenticate(supplied_key, settings) if supplied_key else None
+            if principal is None and supplied_key and key_store is not None:
+                try:
+                    principal = await run_in_threadpool(key_store.authenticate, supplied_key)
+                except Exception as exc:  # noqa: BLE001 - fail closed: no store failure may authenticate a request
+                    logger.error("keystore_unavailable request_id=%s error_type=%s", request_id, type(exc).__name__)
+                    return secure_headers(JSONResponse(
+                        status_code=503,
+                        content={"detail": "Authentication is temporarily unavailable."},
+                        headers={"Retry-After": "5"},
+                    ))
             if principal is None:
                 return secure_headers(JSONResponse(
                     status_code=401,

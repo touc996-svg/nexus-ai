@@ -80,8 +80,22 @@ that sets only `NEXUS_API_KEYS` (no operator key) can no longer reach these rout
 at all: set `NEXUS_API_KEY` to keep an administrator credential. With
 authentication off (local development, public demo) nothing changes.
 
-This is tenant isolation, not complete authentication and authorization. Keys are
-environment variables (no rotation, expiry or revocation), OIDC/JWT identity is
+**Stored keys (opt-in, no effect unless enabled):** set `NEXUS_KEYSTORE_ENABLED=true`
+to also accept keys issued with `python -m app.security.keystore`. They are generated
+by the server, shown once, stored only as a SHA-256 digest, always expire (default
+90 days, at most 366), can be revoked (effective on the next request) and rotated
+(a replacement plus a short overlap for the old key, never longer than it already
+had). Enabling it creates an `api_keys` table in the application database. The
+environment keys keep working and stay the bootstrap and break-glass credentials;
+at least one is still required, because enabling the store turns authentication on
+(with no environment key the application refuses to start). If the store cannot be
+read, a stored key gets 503, never access. Keys are managed only from the command
+line, which prints the database it changed (password hidden): run it with the same
+`DATABASE_URL` as the server.
+
+This is tenant isolation, not complete authentication and authorization. The
+environment keys have no rotation, expiry or revocation (stored keys do, when
+enabled), OIDC/JWT identity is
 not implemented, there are only two roles (administrator, which is the operator
 key, and scoped user), the AEGIS-X, activity and system endpoints are
 administrator-only but return deployment-wide data rather than per-user views, and rate
