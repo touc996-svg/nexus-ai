@@ -1,0 +1,74 @@
+"""Request identity and tenant isolation.
+
+Authentication produces a ``Principal`` that the middleware attaches to the request.
+Endpoints that touch per-user data must resolve the user (and session) through
+this module instead of trusting identifiers supplied by the client.
+
+Principal kinds
+  * scoped user: authenticated with a key from ``NEXUS_API_KEYS``. Bound to one user_id.
+    Cross-user access is rejected with 403, and session ids are stored in a per-user namespace.
+  * operator: authenticated with the legacy ``NEXUS_API_KEY``. Full access, as before.
+    This is an explicit administrator credential, not an end-user credential.
+  * unauthenticated: authentication is switched off (local development or demo mode).
+    No enforcement, as before. Never use this mode with real data.
+
+If authentication is required but no principal is present, access is refused (fail closed).
+"""
+
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+
+from fastapi import HTTPException, Request
+
+SYSTEM_USER = "system"
+
+
+@dataclass(frozen=True)
+class Principal:
+    user_id: str | None
+    is_admin: bool
+
+    @property
+    def scoped(self) -> bool:
+        """True when the caller is bound to a single user and must be confined to it."""
+        return not self.is_admin and self.user_id is not None
+
+
+UNAUTHENTICATED = Principal(user_id=None, is_admin=True)
+OPERATOR = Principal(user_id=None, is_admin=True)
+
+
+def get_principal(request: Request) -> Principal:
+    principal = getattr(request.state, "principal", None)
+    if isinstance(principal, Principal):
+        return principal
+    settings = getattr(request.app.state, "security_settings", None)
+    if settings is not None and settings.require_api_key and not settings.demo_mode:
+        raise HTTPException(status_code=401, detail="Valid API key required.")
+    return UNAUTHENTICATED
+
+
+def resolve_user_id(principal: Principal, requested: str | None, default: str | None = None) -> str | None:
+    """Return the user id this request may act on.
+
+    Scoped callers always act as themselves; naming anyone else is a 403. Operators and
+    unauthenticated callers keep the requested id (or ``default`` when none was given).
+    """
+    if principal.scoped:
+        if requested is not None and requested != principal.user_id:
+            raise HTTPException(status_code=403, detail="Access to another user's data is not permitted.")
+        return principal.user_id
+    return requested if requested is not None else default
+
+
+def scope_session_id(principal: Principal, session_id: str) -> str:
+    """Namespace a session id per user so sessions cannot be read or overwritten across users.
+
+    A fixed-length hash prefix keeps the mapping collision-free for any user_id/session_id pair.
+    """
+    if not principal.scoped or principal.user_id is None:
+        return session_id
+    prefix = hashlib.sha256(principal.user_id.encode("utf-8")).hexdigest()[:24]
+    return f"{prefix}:{session_id}"

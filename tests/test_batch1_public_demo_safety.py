@@ -1,3 +1,4 @@
+from app.security.identity import UNAUTHENTICATED
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -41,7 +42,7 @@ def test_demo_chat_does_not_read_or_write_persistent_user_data(monkeypatch):
         patch.object(main.memory, "add_message", side_effect=AssertionError("memory write")),
         patch.object(main.conversation_engine, "understand", return_value=understanding),
     ):
-        response = main.chat(main.ChatRequest(message="hello", user_id="public-user"))
+        response = main.chat(main.ChatRequest(message="hello", user_id="public-user"), principal=UNAUTHENTICATED)
 
     assert response["response"] == "Demo response"
     assert response["status"] == "completed"
@@ -69,7 +70,7 @@ def test_retrieval_does_not_override_conversation_clarification(monkeypatch):
         patch.object(main.conversation_engine, "understand", return_value=clarification),
         patch.object(main.nexus, "run_agent") as run_agent,
     ):
-        response = main.chat(main.ChatRequest(message="Can you help?"))
+        response = main.chat(main.ChatRequest(message="Can you help?"), principal=UNAUTHENTICATED)
 
     assert response["intent"]["intent_type"] == "clarification"
     assert response["agent"] is None

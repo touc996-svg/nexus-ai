@@ -21,6 +21,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
+from app.security.identity import OPERATOR, Principal
+
 logger = logging.getLogger("nexus.security")
 PUBLIC_PATHS = {"/", "/health/live", "/health/ready"}
 DEMO_ACTIVITY_PATHS = {"/activity", "/activity/summary", "/dashboard/activity"}
@@ -37,10 +39,53 @@ class SecuritySettings:
     demo_mode: bool
     app_env: str
     api_key: str
+    user_keys: tuple[tuple[str, str], ...]
     require_api_key: bool
     cors_origins: tuple[str, ...]
     rate_limit_per_minute: int
     max_request_bytes: int
+
+
+MIN_USER_KEY_LENGTH = 24
+
+
+def parse_user_keys(raw: str, operator_key: str = "") -> tuple[tuple[str, str], ...]:
+    """Parse ``key=user_id`` pairs separated by commas into (key, user_id) tuples.
+
+    Rejects malformed entries, short keys, reused keys and a key equal to the operator key,
+    because any of those would silently weaken isolation.
+    """
+    pairs: list[tuple[str, str]] = []
+    seen_keys: set[str] = set()
+    for entry in (e.strip() for e in raw.split(",")):
+        if not entry:
+            continue
+        key, sep, user_id = entry.partition("=")
+        key, user_id = key.strip(), user_id.strip()
+        if not sep or not key or not user_id:
+            raise ValueError("NEXUS_API_KEYS entries must look like key=user_id")
+        if len(key) < MIN_USER_KEY_LENGTH:
+            raise ValueError(f"NEXUS_API_KEYS keys must be at least {MIN_USER_KEY_LENGTH} characters")
+        if len(user_id) > 128 or any(ord(c) < 33 for c in user_id):
+            raise ValueError("NEXUS_API_KEYS user ids must be 1 to 128 printable characters without spaces")
+        if key in seen_keys:
+            raise ValueError("NEXUS_API_KEYS contains a duplicated key")
+        if operator_key and key == operator_key:
+            raise ValueError("NEXUS_API_KEYS must not reuse NEXUS_API_KEY")
+        seen_keys.add(key)
+        pairs.append((key, user_id))
+    return tuple(pairs)
+
+
+def authenticate(supplied_key: str, settings: "SecuritySettings") -> Principal | None:
+    """Match a supplied key to a principal. Compares against every configured key (no early exit)."""
+    match: Principal | None = None
+    if settings.api_key and hmac.compare_digest(supplied_key, settings.api_key):
+        match = OPERATOR
+    for key, user_id in settings.user_keys:
+        if hmac.compare_digest(supplied_key, key):
+            match = Principal(user_id=user_id, is_admin=False)
+    return match
 
 
 def load_security_settings() -> SecuritySettings:
@@ -51,11 +96,12 @@ def load_security_settings() -> SecuritySettings:
     require_api_key = _as_bool(
         os.getenv("NEXUS_REQUIRE_API_KEY"), default_required
     )
-    if api_key and not demo_mode:
+    user_keys = parse_user_keys(os.getenv("NEXUS_API_KEYS", ""), api_key)
+    if (api_key or user_keys) and not demo_mode:
         require_api_key = True
-    if require_api_key and not api_key and not demo_mode:
+    if require_api_key and not api_key and not user_keys and not demo_mode:
         raise RuntimeError(
-            "NEXUS_API_KEY is required when API-key authentication is enabled. "
+            "NEXUS_API_KEY or NEXUS_API_KEYS is required when API-key authentication is enabled. "
             "Set a strong secret or explicitly disable NEXUS_REQUIRE_API_KEY "
             "for a trusted local development environment."
         )
@@ -76,6 +122,7 @@ def load_security_settings() -> SecuritySettings:
         demo_mode=demo_mode,
         app_env=app_env,
         api_key=api_key,
+        user_keys=user_keys,
         require_api_key=require_api_key,
         cors_origins=origins,
         rate_limit_per_minute=rate_limit,
@@ -126,6 +173,7 @@ def install_security(app) -> None:
     """Install authentication, request limits, response headers and CORS."""
     settings = load_security_settings()
     limiter = SlidingWindowRateLimiter(settings.rate_limit_per_minute)
+    app.state.security_settings = settings
 
     @app.middleware("http")
     async def nexus_security_middleware(request: Request, call_next):
@@ -184,12 +232,14 @@ def install_security(app) -> None:
             authorization = request.headers.get("authorization", "")
             bearer = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
             supplied_key = bearer or request.headers.get("x-api-key", "").strip()
-            if not supplied_key or not hmac.compare_digest(supplied_key, settings.api_key):
+            principal = authenticate(supplied_key, settings) if supplied_key else None
+            if principal is None:
                 return secure_headers(JSONResponse(
                     status_code=401,
                     content={"detail": "Valid API key required."},
                     headers={"WWW-Authenticate": "Bearer"},
                 ))
+            request.state.principal = principal
 
         try:
             response = await call_next(request)

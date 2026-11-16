@@ -2,9 +2,10 @@ import os
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from app.security.identity import SYSTEM_USER, Principal, get_principal, resolve_user_id
 from app.services.rag import rag
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
@@ -15,15 +16,17 @@ MAX_FILE_SIZE = 20 * 1024 * 1024
 
 class KnowledgeSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=5000)
-    user_id: str = Field(default="system", min_length=1, max_length=128)
+    user_id: str | None = Field(default=None, min_length=1, max_length=128)
     limit: int = Field(default=5, ge=1, le=50)
 
 
 @router.post("/ingest")
 async def ingest_document(
     file: UploadFile = File(...),
-    user_id: str = Form(default="system")
+    user_id: str | None = Form(default=None),
+    principal: Principal = Depends(get_principal),
 ):
+    user_id = resolve_user_id(principal, user_id, default=SYSTEM_USER)
     filename = Path(file.filename or "").name
     suffix = Path(filename).suffix.lower()
 
@@ -74,7 +77,8 @@ async def ingest_document(
 
 
 @router.get("/sources")
-def list_knowledge_sources(user_id: str = "system"):
+def list_knowledge_sources(user_id: str | None = None, principal: Principal = Depends(get_principal)):
+    user_id = resolve_user_id(principal, user_id, default=SYSTEM_USER)
     try:
         return {"user_id": user_id, "sources": rag.list_sources(user_id=user_id)}
     except Exception as exc:
@@ -85,7 +89,12 @@ def list_knowledge_sources(user_id: str = "system"):
 
 
 @router.delete("/sources/{source_id}")
-def delete_knowledge_source(source_id: str, user_id: str = "system"):
+def delete_knowledge_source(
+    source_id: str,
+    user_id: str | None = None,
+    principal: Principal = Depends(get_principal),
+):
+    user_id = resolve_user_id(principal, user_id, default=SYSTEM_USER)
     try:
         deleted = rag.delete_source(source_id=source_id, user_id=user_id)
         return {
@@ -101,11 +110,12 @@ def delete_knowledge_source(source_id: str, user_id: str = "system"):
 
 
 @router.post("/search")
-def search_knowledge(request: KnowledgeSearchRequest):
+def search_knowledge(request: KnowledgeSearchRequest, principal: Principal = Depends(get_principal)):
+    user_id = resolve_user_id(principal, request.user_id, default=SYSTEM_USER)
     try:
         results = rag.search(
             query=request.query,
-            user_id=request.user_id,
+            user_id=user_id,
             limit=request.limit
         )
         return {
