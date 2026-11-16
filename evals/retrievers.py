@@ -94,6 +94,9 @@ class ReciprocalRankFusion:
     def __init__(self, retrievers: list[Retriever], rrf_k: int = 60, depth: int = 20):
         self.retrievers, self.rrf_k, self.depth = retrievers, rrf_k, depth
 
+    def close(self) -> None:
+        close_all(*self.retrievers)
+
     def search(self, query: str, k: int) -> list[tuple[str, float]]:
         fused: dict[str, float] = {}
         for retriever in self.retrievers:
@@ -148,6 +151,9 @@ class LLMReranker:
         self.first, self.corpus, self.depth = first_stage, corpus, depth
         self.judge = judge or LLMJudge()
 
+    def close(self) -> None:
+        close_all(self.first)
+
     def search(self, query: str, k: int) -> list[tuple[str, float]]:
         candidates = self.first.search(query, self.depth)
         rescored = [(doc_id, float(self.judge.score(query, self.corpus[doc_id])), -rank)
@@ -156,7 +162,15 @@ class LLMReranker:
         return [(d, s) for d, s, _ in rescored][:k]
 
 
-SYSTEMS = ["bm25", "tfidf", "hybrid", "dense", "hybrid_dense", "rerank", "broken"]
+NEXUS_SYSTEMS = ["nexus_dense", "nexus_hybrid", "nexus_rerank"]
+SYSTEMS = ["bm25", "tfidf", "hybrid", "dense", "hybrid_dense", "rerank", "broken", *NEXUS_SYSTEMS]
+
+
+def close_all(*retrievers) -> None:
+    for retriever in retrievers:
+        closer = getattr(retriever, "close", None)
+        if callable(closer):
+            closer()
 
 
 def build_system(name: str, corpus: dict[str, str]) -> Retriever:
@@ -171,6 +185,15 @@ def build_system(name: str, corpus: dict[str, str]) -> Retriever:
         return ReciprocalRankFusion([bm25, tfidf])
     if name == "broken":
         return ReversedRetriever(bm25)
+    if name in NEXUS_SYSTEMS:
+        from .nexus_adapter import NexusRagRetriever
+
+        production = NexusRagRetriever(corpus)  # the real NexusRAG over an isolated Qdrant collection
+        if name == "nexus_dense":
+            return production
+        fused = ReciprocalRankFusion([bm25, tfidf, production])
+        fused.name = "nexus_hybrid"
+        return fused if name == "nexus_hybrid" else LLMReranker(fused, corpus)
     dense = DenseRetriever(corpus)
     if name == "dense":
         return dense

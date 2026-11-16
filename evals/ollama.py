@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import atexit
+import contextlib
 import json
 import os
 import re
 import tempfile
 import urllib.request
+import weakref
 from pathlib import Path
 
 CACHE_DIR = Path(__file__).parent / "cache"
@@ -31,37 +33,125 @@ def _key(*parts: str) -> str:
     return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
 
 
+def fingerprint(*parts) -> str:
+    """Stable short hash of everything that determines a computation (prompt, schema, options, model...)."""
+    return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+# Entries cached before keys carried a configuration fingerprint are adopted under the new key only while the
+# current configuration still equals the one in force when they were written. Edit a prompt, schema or option
+# and the fingerprint changes, adoption stops, and the computation is redone instead of reusing a stale value.
+# The fingerprints below were computed from the prompts, schema and options as they stood when those entries
+# were written (unchanged since: see git history of this file).
+LEGACY_ADOPTABLE = {
+    "judge": {"1202d3e4e027184e"},                              # qwen3:1.7b relevance judge
+    "structured": {"293938d9180f4474", "5210eaa191c41aa3"},     # qwen3:4b and qwen3:1.7b structured generation
+}
+
+
+try:  # advisory file locking; absent on Windows, where the merge below is still correct for one process
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None
+
+INFERENCE_BLOCKED = False  # set by tools and tests that must never call a model
+
+
+@contextlib.contextmanager
+def locked(path: Path):
+    """Exclusive advisory lock on ``<path>.lock`` so concurrent writers (threads, processes) serialize."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(path.with_name(path.name + ".lock"), "a")
+    try:
+        if fcntl is not None:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+    finally:
+        if fcntl is not None:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+        handle.close()
+
+
+def read_json(path: Path) -> dict:
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def write_json_atomic(path: Path, data: dict) -> None:
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    with os.fdopen(fd, "w") as f:
+        json.dump(data, f, sort_keys=True, separators=(",", ":"))
+        f.write("\n")
+    os.replace(tmp, path)
+
+
 class JsonCache:
+    """Content-addressed cache backed by one JSON file, safe for several cache objects on the same file.
+
+    Writes go to ``pending`` and are merged into whatever is on disk at flush time (under a file lock), so a
+    flush can add entries but never remove or overwrite entries written by another cache object or process.
+    Entries are only ever removed by an explicit ``evals.prune_cache`` run.
+    """
+
+    CHECKPOINT = 5
+    instances: "weakref.WeakSet[JsonCache]" = weakref.WeakSet()
+    usage: dict[str, set[str]] | None = None  # when a dict, records every key read or written (see prune_cache)
+
     def __init__(self, name: str):
         self.path = CACHE_DIR / name
-        self.data: dict = json.loads(self.path.read_text()) if self.path.exists() else {}
-        self.dirty = False
+        self.data: dict = read_json(self.path)
+        self.pending: dict = {}
+        JsonCache.instances.add(self)
         atexit.register(self.flush)
 
+    @property
+    def dirty(self) -> bool:
+        return bool(self.pending)
+
+    def _touch(self, key) -> None:
+        if JsonCache.usage is not None:
+            JsonCache.usage.setdefault(self.path.name, set()).add(key)
+
     def get(self, key):
-        return self.data.get(key)
+        value = self.data.get(key)
+        if value is not None:
+            self._touch(key)
+        return value
+
+    def get_or_adopt(self, key, legacy_key, legacy_allowed: bool):
+        """Return the value under ``key``; otherwise adopt a pre-fingerprint entry when it is provably the same config."""
+        hit = self.get(key)
+        if hit is None and legacy_allowed:
+            hit = self.data.get(legacy_key)
+            if hit is not None:
+                self.put(key, hit)
+        return hit
 
     def put(self, key, value):
         self.data[key] = value
-        self.dirty = True
-        self.pending = getattr(self, "pending", 0) + 1
-        if self.pending >= 5:  # checkpoint so an interrupted run keeps its completed work
+        self.pending[key] = value
+        self._touch(key)  # a freshly written entry counts as used, so cleanup can never drop it
+        if len(self.pending) >= self.CHECKPOINT:  # an interrupted run keeps its completed work
             self.flush()
-            self.pending = 0
 
     def flush(self):
-        if not self.dirty:
+        if not self.pending:
             return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=str(self.path.parent), suffix=".tmp")
-        with os.fdopen(fd, "w") as f:
-            json.dump(self.data, f, sort_keys=True, separators=(",", ":"))
-            f.write("\n")
-        os.replace(tmp, self.path)
-        self.dirty = False
+        with locked(self.path):
+            merged = read_json(self.path)  # entries other cache objects or processes wrote since we loaded
+            merged.update(self.pending)
+            write_json_atomic(self.path, merged)
+        self.data = merged
+        self.pending = {}
+
+    @classmethod
+    def flush_all(cls) -> None:
+        for instance in list(cls.instances):
+            instance.flush()
 
 
 def _post(path: str, payload: dict, timeout: float | None = None) -> dict:
+    if INFERENCE_BLOCKED:
+        raise CacheMiss("model inference is blocked in this process; the value is not cached")
     timeout = timeout or float(os.getenv("EVALS_TIMEOUT", "400"))
     req = urllib.request.Request(BASE_URL + path, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})
@@ -100,17 +190,21 @@ class LLMJudge:
               "How well does the passage contain the information needed to answer the question? "
               "Reply with a single integer from 0 (irrelevant) to 10 (fully answers it). Reply with the number only.")
 
+    OPTIONS = {"temperature": 0, "seed": 0, "num_predict": 8}
+
     def __init__(self, model: str = RERANK_MODEL):
         self.model, self.cache = model, JsonCache("rerank.json")
+        self.config = fingerprint("judge", model, self.PROMPT, self.OPTIONS)
 
     def score(self, question: str, passage: str) -> int:
-        key = _key(self.model, question, passage)
-        hit = self.cache.get(key)
+        key = _key("judge", self.config, question, passage)
+        hit = self.cache.get_or_adopt(key, _key(self.model, question, passage),
+                                      self.config in LEGACY_ADOPTABLE["judge"])
         if hit is not None:
             return hit
         out = _post("/api/chat", {
             "model": self.model, "stream": False, "think": False,
-            "options": {"temperature": 0, "seed": 0, "num_predict": 8},
+            "options": self.OPTIONS,
             "messages": [{"role": "user", "content": self.PROMPT.format(q=question, p=passage)}],
         })["message"]["content"]
         m = _SCORE.search(out)
@@ -150,25 +244,41 @@ class LLMGenerator:
         "{passages}\n\nQuestion: {q}\nAnswer:"
     )
 
+    OPTIONS = {"temperature": 0, "seed": 0, "num_predict": 200}
+
     def __init__(self, model: str | None = None, structured: bool = True):
         self.model, self.structured = model or GEN_MODEL, structured
         self.cache = JsonCache("generate.json")
+        prompt = self.STRUCTURED_PROMPT if structured else self.FREE_TEXT_PROMPT
+        self.config = fingerprint("generate", self.model, structured, prompt, self.OPTIONS,
+                                  self.SCHEMA if structured else None)
 
-    def generate(self, question: str, passages: list[tuple[str, str]]) -> str:
+    def key(self, question: str, passages: list[tuple[str, str]]) -> str:
+        """Cache key: configuration fingerprint + the question + the exact retrieved context, in order."""
         block = "\n".join(f"[{i}] {t}" for i, t in passages)
-        mode = "structured" if self.structured else "generate"
-        key = _key(self.model, mode, question, block)
-        hit = self.cache.get(key)
-        if hit is not None:
-            return hit
+        return _key("generate", self.config, question, block)
+
+    def request(self, question: str, passages: list[tuple[str, str]]) -> str:
+        """One model call, never cached. Used by ``generate`` and by the recovery tool."""
+        block = "\n".join(f"[{i}] {t}" for i, t in passages)
         prompt = (self.STRUCTURED_PROMPT if self.structured else self.FREE_TEXT_PROMPT)
         payload = {
             "model": self.model, "stream": False, "think": False,
-            "options": {"temperature": 0, "seed": 0, "num_predict": 200},
+            "options": self.OPTIONS,
             "messages": [{"role": "user", "content": prompt.format(passages=block, q=question)}],
         }
         if self.structured:
             payload["format"] = self.SCHEMA
-        out = _post("/api/chat", payload)["message"]["content"].strip()
+        return _post("/api/chat", payload)["message"]["content"].strip()
+
+    def generate(self, question: str, passages: list[tuple[str, str]]) -> str:
+        block = "\n".join(f"[{i}] {t}" for i, t in passages)
+        mode = "structured" if self.structured else "generate"
+        key = self.key(question, passages)
+        hit = self.cache.get_or_adopt(key, _key(self.model, mode, question, block),
+                                      self.structured and self.config in LEGACY_ADOPTABLE["structured"])
+        if hit is not None:
+            return hit
+        out = self.request(question, passages)
         self.cache.put(key, out)
         return out

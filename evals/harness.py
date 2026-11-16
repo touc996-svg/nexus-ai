@@ -8,7 +8,7 @@ from time import perf_counter
 
 from . import metrics as m
 from .answerer import ExtractiveAnswerer, HallucinatingAnswerer, LLMAnswerer
-from .retrievers import build_system
+from .retrievers import build_system, close_all
 
 DATA = Path(__file__).parent / "datasets"
 K = 3
@@ -63,19 +63,28 @@ def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path =
              answerer: str = "extractive", split: str = "dev") -> dict:
     corpus, questions = load_dataset(data_dir, split)
     validate_dataset(corpus, questions)
-    retriever = build_system(system, corpus)
     if answerer not in ("extractive", "llm"):
         raise ValueError("answerer must be 'extractive' or 'llm'")
+    retriever = build_system(system, corpus)
+    try:
+        return _run(retriever, corpus, questions, system, hallucinate, answerer, split)
+    finally:
+        close_all(retriever)  # removes any evaluation collection
+
+
+def _run(retriever, corpus, questions, system, hallucinate, answerer, split) -> dict:
     gen = (LLMAnswerer(retriever, corpus, k=K) if answerer == "llm"
            else ExtractiveAnswerer(retriever, corpus, k=K))
     if hallucinate:
         gen = HallucinatingAnswerer(gen)
 
-    rows, latencies = [], []
+    rows, latencies, retrieval_parts = [], [], []
     for q in questions:
         relevant = set(q["relevant"])
         started = perf_counter()
         ranked = [d for d, _ in retriever.search(q["question"], 10)]
+        if getattr(retriever, "last_timing", None):
+            retrieval_parts.append(dict(retriever.last_timing))
         ans = gen.answer(q["question"])
         latencies.append((perf_counter() - started) * 1000)
         row = {"id": q["id"], "difficulty": q["difficulty"], "answerable": q["answerable"],
@@ -128,8 +137,22 @@ def evaluate(system: str = "hybrid", hallucinate: bool = False, data_dir: Path =
         "failures": [r["id"] for r in ans_rows if not r["correct"]],
         "per_question": rows,
         # wall-clock timing is informational only: never gated, excluded from determinism checks
-        "timing_ms": {"p50": round(ordered[len(ordered) // 2], 3), "max": round(ordered[-1], 3)},
+        "timing_ms": {"p50": round(ordered[len(ordered) // 2], 3), "max": round(ordered[-1], 3),
+                      **_retrieval_timing(retrieval_parts)},
     }
+
+
+def _retrieval_timing(parts: list[dict]) -> dict:
+    """Production-retrieval latency: Qdrant time measured now plus embedding time recorded when the
+    vector was first computed live. Informational only; never gated."""
+    if not parts:
+        return {}
+    totals = sorted(p["embed_ms"] + p["qdrant_ms"] for p in parts)
+    qdrant = sorted(p["qdrant_ms"] for p in parts)
+    embed = sorted(p["embed_ms"] for p in parts)
+    pick = lambda v, q: round(v[min(len(v) - 1, int(len(v) * q))], 3)  # noqa: E731
+    return {"retrieval_p50": pick(totals, 0.5), "retrieval_p95": pick(totals, 0.95),
+            "qdrant_p50": pick(qdrant, 0.5), "embed_recorded_p50": pick(embed, 0.5)}
 
 
 def flatten(summary: dict) -> dict[str, float]:
