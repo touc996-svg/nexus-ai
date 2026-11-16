@@ -9,7 +9,7 @@ NEXUS AI is a modular AI platform designed to bring enterprise assistance, perso
 
 ## Project Overview
 
-NEXUS AI uses specialized agents coordinated by a central orchestrator. It combines automated routing, rule-based decision support, security guardrails, and persistent SQLite memory.
+NEXUS AI uses specialized agents coordinated by a central orchestrator. It combines automated routing, rule-based decision support, input-validation guardrails (enforced type, length and size limits), and persistent SQLite memory.
 
 The goal is to build a scalable foundation for intelligent automation and enterprise AI workflows.
 
@@ -47,6 +47,14 @@ The goal is to build a scalable foundation for intelligent automation and enterp
                      |
               SQLite Memory
 ```
+
+The "Security Guardrails" box is schematic. What the code enforces is input and schema validation: message type,
+empty and length checks, context and profile size bounds, and a schema check on the model's routing output
+(`app/security/guardrails.py`, `app/core/orchestrator.py`, `app/agents/contracts.py`, `app/core/conversation.py`).
+The message checks run before an agent is called; the routing check runs on the model's reply. Instructions that tell a model to treat retrieved or quoted
+content as untrusted are advisory: they do not guarantee protection against prompt injection, and there is no
+injection detection, delimiter neutralization or PII handling. Details and test coverage are in
+`docs/ENGINEERING_AUDIT.md`, section 4.1.
 
 ## Technology Stack
 
@@ -143,7 +151,7 @@ NEXUS AI is being developed with an emphasis on:
 
 The current implementation includes the FastAPI application, three specialized agents, orchestration, rule-based decision support, SQLite persistent memory, and automated tests.
 
-The project is under active development. Authentication and user-level authorization remain required before exposing live/local-AI mode to an untrusted network. The public demo is stateless and disables memory/profile CRUD; knowledge ingestion and retrieval remain disabled there.
+The project is under active development. Opt-in per-user API keys provide tenant isolation (see "Identity and tenant isolation" below), but complete authentication and authorization (OIDC/JWT, key rotation and revocation, and the other outstanding controls) remain required before exposing live/local-AI mode to an untrusted network. The public demo is stateless and disables memory/profile CRUD; knowledge ingestion and retrieval remain disabled there.
 
 ## Disclaimer
 
@@ -221,8 +229,10 @@ the existing project architecture:
 
 1. **Agents:** consistent response contracts, bounded profile context, and
    explicit failure for empty model output.
-2. **Orchestration:** bounded sequential context transfer, explicit untrusted
-   agent-output boundaries, resilient activity logging, and per-agent metrics.
+2. **Orchestration:** bounded sequential context transfer, untrusted-output
+   delimiter tags with an instruction not to follow their contents (advisory
+   labels, not an enforced boundary), resilient activity logging, and per-agent
+   metrics.
 3. **Decision engine:** source-attributed indicators, negative-signal handling,
    review escalation, and documented heuristic limits.
 4. **Memory:** identifier and profile validation, JSON safety, bounded profile

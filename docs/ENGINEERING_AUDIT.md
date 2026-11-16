@@ -154,7 +154,7 @@ Other weaknesses carried from v1 and re-checked:
 - **S5 (Medium, unchanged):** dependencies are not reproducible (`openai` unpinned, `qdrant-client` ranged, `pytest` in the production requirements, no lockfile or Dependabot configuration).
 - **S6 (Low, unchanged):** `app/core/config.py` defines only `OPENAI_API_KEY`; configuration is read from scattered `os.getenv` calls.
 - **Q2 (unchanged):** `app/main.py` mixes routing and logic; routing and risk decisions are keyword matching.
-- **New, documentation:** `docs/UPGRADE_NOTES.md` (line 63) still carries the pre-PR-#4 "Identity limitation" paragraph, which now overstates the gap for scoped keys. It was not edited by this update (scope limit) and should be reconciled with the README section "Identity and tenant isolation".
+- **Documentation (resolved in PR #8):** `docs/UPGRADE_NOTES.md` carried the pre-PR-#4 "Identity limitation" paragraph, which overstated the gap for scoped keys. PR #8 replaced it with wording that matches the README section "Identity and tenant isolation" and section 2.1 of this audit; it still states that tenant isolation is not complete authentication and authorization.
 - **New, process:** two incidents are on record: a non-ASCII API-key header returned 500 instead of 401 (found in review of PR #4 and fixed before merge; the original comparison had the same bug), and a cache data-loss incident during PR #5 (section 5). Both are fixed and covered by regression tests.
 
 ### 4.1 S2 in detail: AI input handling and prompt-injection controls
@@ -211,7 +211,7 @@ How 4.1 was verified (read-only): `grep` over `app/` and `tests/` for the contro
 
 1. **Narrow the cleanup workload** to the combinations tests and reports use, then run `evals.prune_cache` (closes L9). Small and independent.
 2. **Pin dependencies; add lint, type, dependency-audit and secret scanning to CI** (S5, Q1; unblocks `pip-audit`). Triage the 13 mypy errors first.
-3. **Reconcile `docs/UPGRADE_NOTES.md`** with the PR #4 behaviour.
+3. **Keep `docs/UPGRADE_NOTES.md` aligned with the identity model.** Its identity paragraph was reconciled with the PR #4 behaviour in PR #8; re-check it whenever the identity model changes.
 4. **Run the Qdrant server test** (needs Docker running and a Qdrant container) to turn the "IMPLEMENTED BUT NOT VERIFIED" row into a verified one or a documented failure.
 5. **Complete authentication and authorization:** scope or restrict the AEGIS-X and global routes; OIDC/JWT; key rotation and revocation; identity-aware and shared rate limiting.
 6. **Phase 3, AI security hardening** (S2): prompt-injection and indirect-injection tests, PII handling, output validation, red-team suite, tool permission boundaries. Not started by this update.
