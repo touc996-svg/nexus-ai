@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
-from app.security.identity import OPERATOR, Principal
+from app.security.identity import OPERATOR, SYSTEM_USER, Principal
 
 logger = logging.getLogger("nexus.security")
 PUBLIC_PATHS = {"/", "/health/live", "/health/ready"}
@@ -68,6 +68,8 @@ def parse_user_keys(raw: str, operator_key: str = "") -> tuple[tuple[str, str], 
             raise ValueError(f"NEXUS_API_KEYS keys must be at least {MIN_USER_KEY_LENGTH} characters")
         if len(user_id) > 128 or any(ord(c) < 33 for c in user_id):
             raise ValueError("NEXUS_API_KEYS user ids must be 1 to 128 printable characters without spaces")
+        if user_id == SYSTEM_USER:
+            raise ValueError("NEXUS_API_KEYS must not use the reserved user id 'system' (the shared pool)")
         if key in seen_keys:
             raise ValueError("NEXUS_API_KEYS contains a duplicated key")
         if operator_key and key == operator_key:
@@ -79,11 +81,14 @@ def parse_user_keys(raw: str, operator_key: str = "") -> tuple[tuple[str, str], 
 
 def authenticate(supplied_key: str, settings: "SecuritySettings") -> Principal | None:
     """Match a supplied key to a principal. Compares against every configured key (no early exit)."""
+    # Compare bytes: hmac.compare_digest raises TypeError on non-ASCII str, which would turn a
+    # malformed credential into a 500 instead of a clean 401.
+    supplied = supplied_key.encode("utf-8")
     match: Principal | None = None
-    if settings.api_key and hmac.compare_digest(supplied_key, settings.api_key):
+    if settings.api_key and hmac.compare_digest(supplied, settings.api_key.encode("utf-8")):
         match = OPERATOR
     for key, user_id in settings.user_keys:
-        if hmac.compare_digest(supplied_key, key):
+        if hmac.compare_digest(supplied, key.encode("utf-8")):
             match = Principal(user_id=user_id, is_admin=False)
     return match
 

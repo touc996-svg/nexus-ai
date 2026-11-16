@@ -216,3 +216,14 @@ def test_missing_principal_fails_closed_when_auth_is_required(monkeypatch):
     with pytest.raises(Exception) as caught:
         get_principal(Request(scope))
     assert getattr(caught.value, "status_code", None) == 401
+
+
+def test_non_ascii_credentials_get_401_not_500(client):
+    """Regression: compare_digest on a non-ASCII str raised TypeError and returned 500."""
+    for headers in ({"X-API-Key": "caf\u00e9-not-ascii".encode("latin-1")}, {"Authorization": b"Bearer \xff\xfe"}):
+        assert client.get("/memory/x", headers=headers).status_code == 401
+
+
+def test_reserved_system_user_id_cannot_be_given_a_key():
+    with pytest.raises(ValueError, match="reserved"):
+        parse_user_keys(f"{ALICE_KEY}=system")
