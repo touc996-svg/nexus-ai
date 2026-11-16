@@ -48,10 +48,12 @@ The goal is to build a scalable foundation for intelligent automation and enterp
               SQLite Memory
 ```
 
-The "Security Guardrails" box is schematic. What the code enforces is input and schema validation: message type,
-empty and length checks, context and profile size bounds, and a schema check on the model's routing output
-(`app/security/guardrails.py`, `app/core/orchestrator.py`, `app/agents/contracts.py`, `app/core/conversation.py`).
-The message checks run before an agent is called; the routing check runs on the model's reply. Instructions that tell a model to treat retrieved or quoted
+The "Security Guardrails" box is schematic. What the code enforces is input and schema validation: request-model limits
+on the message (1 to 5,000 characters; an empty or longer message is rejected with HTTP 422 before any handler runs),
+message type, empty and length checks, context and profile size bounds, and a schema check on the model's routing output
+(`app/main.py`, `app/security/guardrails.py`, `app/core/orchestrator.py`, `app/agents/contracts.py`, `app/core/conversation.py`).
+The request-model limits apply at the API boundary; the other message checks run later: the orchestrator's before an agent is called (on `/chat`,
+only when the intent is an agent task) and each agent's on its own input; the routing check runs on the model's reply. Instructions that tell a model to treat retrieved or quoted
 content as untrusted are advisory: they do not guarantee protection against prompt injection, and there is no
 injection detection, delimiter neutralization or PII handling. Details and test coverage are in
 `docs/ENGINEERING_AUDIT.md`, section 4.1.
