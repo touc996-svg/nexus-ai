@@ -71,10 +71,20 @@ Sessions and profiles created before this change are reachable only with the
 operator key. When authentication is switched off (local development, public
 demo) there is no identity and no enforcement.
 
+**Breaking change (administrator-only system routes):** `/integrations/aegis-x/*`,
+`/system/*`, `/activity`, `/activity/summary`, `/dashboard/activity`,
+`/memory/status` and `/decision-engine/status` now require the operator key
+(`NEXUS_API_KEY`). A per-user key (`NEXUS_API_KEYS`) receives 403 on them where it
+previously succeeded; a request with no valid key still receives 401. A deployment
+that sets only `NEXUS_API_KEYS` (no operator key) can no longer reach these routes
+at all: set `NEXUS_API_KEY` to keep an administrator credential. With
+authentication off (local development, public demo) nothing changes.
+
 This is tenant isolation, not complete authentication and authorization. Keys are
 environment variables (no rotation, expiry or revocation), OIDC/JWT identity is
-not implemented, there are no roles beyond scoped user and operator, the
-AEGIS-X, activity and system endpoints are not scoped to a user, and rate
+not implemented, there are only two roles (administrator, which is the operator
+key, and scoped user), the AEGIS-X, activity and system endpoints are
+administrator-only but return deployment-wide data rather than per-user views, and rate
 limiting is per-process and per-client-address. Do not expose persistent-memory,
 profile or RAG features as a multi-tenant production service on this basis alone.
 See the "Identity and tenant isolation" section of `README.md` and section 2.1

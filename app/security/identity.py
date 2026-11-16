@@ -13,16 +13,25 @@ Principal kinds
     No enforcement, as before. Never use this mode with real data.
 
 If authentication is required but no principal is present, access is refused (fail closed).
+
+Roles
+  * ``admin``: the operator credential, and the no-authentication development/demo mode.
+  * ``user``: a scoped key. It reaches user-data routes (confined to its own data) and the agent routes,
+    and is refused (403) on system-level routes: AEGIS-X, activity history and system status. Those routes
+    declare ``Depends(require_admin)``; a new route that is not classified fails ``tests/test_authorization_roles.py``.
 """
 
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from typing import Annotated
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 
 SYSTEM_USER = "system"
+ROLE_ADMIN = "admin"
+ROLE_USER = "user"
 
 
 @dataclass(frozen=True)
@@ -34,6 +43,11 @@ class Principal:
     def scoped(self) -> bool:
         """True when the caller is bound to a single user and must be confined to it."""
         return not self.is_admin and self.user_id is not None
+
+    @property
+    def role(self) -> str:
+        """``admin`` for the operator credential (and for no-authentication mode), ``user`` for a scoped key."""
+        return ROLE_ADMIN if self.is_admin else ROLE_USER
 
 
 UNAUTHENTICATED = Principal(user_id=None, is_admin=True)
@@ -48,6 +62,19 @@ def get_principal(request: Request) -> Principal:
     if settings is not None and settings.require_api_key and not settings.demo_mode:
         raise HTTPException(status_code=401, detail="Valid API key required.")
     return UNAUTHENTICATED
+
+
+def require_admin(principal: Annotated[Principal, Depends(get_principal)]) -> Principal:
+    """Dependency for system-level routes: administrator credentials only.
+
+    A valid scoped key is still refused (403): being authenticated is not the same as being authorized. A request
+    with no principal is refused by ``get_principal`` (401) whenever authentication is required, so this fails
+    closed even if the authentication middleware is missing. With authentication switched off (local development,
+    public demo) there is no identity and, as before, no enforcement.
+    """
+    if not principal.is_admin:
+        raise HTTPException(status_code=403, detail="Administrator credentials required.")
+    return principal
 
 
 def resolve_user_id(principal: Principal, requested: str | None, default: str | None = None) -> str | None:

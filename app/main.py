@@ -13,7 +13,7 @@ from app.core.memory import memory
 from app.core.router import router
 from app.core.activity import activity_logger
 from app.core.conversation import conversation_engine
-from app.security.identity import Principal, get_principal, resolve_user_id, scope_session_id
+from app.security.identity import Principal, get_principal, require_admin, resolve_user_id, scope_session_id
 
 
 DEMO_MODE = os.getenv("NEXUS_DEMO_MODE", "false").lower() in {
@@ -113,7 +113,7 @@ def home():
 
 # DECISION ENGINE STATUS
 
-@app.get("/decision-engine/status")
+@app.get("/decision-engine/status", dependencies=[Depends(require_admin)])
 def decision_engine_status():
     return {
         "name": decision_engine.__class__.__name__,
@@ -132,7 +132,7 @@ def decision_engine_status():
 
 # PERSISTENT MEMORY STATUS
 
-@app.get("/memory/status")
+@app.get("/memory/status", dependencies=[Depends(require_admin)])
 def memory_status():
     if DEMO_MODE:
         return {
@@ -457,7 +457,7 @@ def chat(request: ChatRequest, principal: Principal = Depends(get_principal)):
 
 # AGENT ACTIVITY HISTORY
 
-@app.get("/activity")
+@app.get("/activity", dependencies=[Depends(require_admin)])
 def get_activity(limit: int = 50):
     return {
         "activities": activity_logger.get_recent(limit),
@@ -467,7 +467,7 @@ def get_activity(limit: int = 50):
 
 # NEXUS AI ACTIVITY DASHBOARD
 
-@app.get("/dashboard/activity")
+@app.get("/dashboard/activity", dependencies=[Depends(require_admin)])
 def activity_dashboard():
     return HTMLResponse("""
 <!DOCTYPE html>
@@ -598,7 +598,7 @@ setInterval(loadActivity, 10000);
 
 # MULTI-AGENT ACTIVITY SUMMARY
 
-@app.get("/activity/summary")
+@app.get("/activity/summary", dependencies=[Depends(require_admin)])
 def get_activity_summary():
     return {
         **activity_logger.get_summary(),

@@ -5,13 +5,19 @@ POST is used only to carry query bodies; every route reads local data.
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.orchestrator import nexus
 from app.integrations.aegis_x.store import load_snapshot
+from app.security.identity import require_admin
 
-router = APIRouter(prefix="/integrations/aegis-x", tags=["AEGIS-X (read-only)"])
+# Security findings are deployment-wide, not per-user data: administrator credentials only.
+router = APIRouter(
+    prefix="/integrations/aegis-x",
+    tags=["AEGIS-X (read-only)"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 class FindingsQuery(BaseModel):
