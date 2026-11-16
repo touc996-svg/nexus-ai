@@ -36,6 +36,7 @@ The public demo does not require an OpenAI API key.
 - Memory and user-profile CRUD endpoints return HTTP 403 in demo mode.
 - Knowledge ingestion and retrieval are disabled in demo mode.
 - The dashboard creates a distinct browser session identifier for local stateful development.
-- Live/local-AI mode is intended for trusted local development until authentication and per-user authorization are implemented.
+- Live/local-AI mode is intended for trusted local development and controlled, single-operator environments. Per-user authorization exists in opt-in form: per-user API keys (`NEXUS_API_KEYS`) confine a request to one user's memory, profile and knowledge, while the legacy `NEXUS_API_KEY` remains an operator credential with access to every user's data.
+- This is tenant isolation, not complete authentication and authorization. OIDC/JWT, key rotation and revocation, roles beyond scoped user and operator, user-scoped AEGIS-X, activity and system endpoints, and shared rate limiting are not implemented, so live mode should not be exposed as an untrusted multi-user service on this basis alone.
 
 The public demo runs in deterministic demo mode. It does not use live Ollama reasoning, persistent conversation memory, or live RAG retrieval. Shared activity-history endpoints are not exposed, and API requests are throttled.
