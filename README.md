@@ -263,6 +263,11 @@ Two kinds of credential are supported (both sent as `Authorization: Bearer <key>
 - **Operator key** (`NEXUS_API_KEY`, unchanged). This is an administrator credential with access to every user's
   data, as before. Existing single-key deployments keep working but do not gain isolation; hand per-user keys to
   end users and keep the operator key private.
+- **Roles.** The operator key (and authentication-off mode) is the `admin` role; a per-user key is the `user` role.
+  System-level routes require `admin`: `/integrations/aegis-x/*`, `/system/*`, `/activity`, `/activity/summary`,
+  `/dashboard/activity`, `/memory/status` and `/decision-engine/status`. A per-user key gets 403 there (no credential
+  at all gets 401). **This is a breaking change** for any client that called those routes with a per-user key: use the
+  operator key from an operator context. These routes return deployment-wide data; they are not per-user views.
 
 `tests/test_tenant_isolation.py` has 20 tests. Eight exercise cross-user isolation through the real routes and
 middleware (memory, profile, knowledge and chat); two check the boundary controls (a user may name themselves, the
@@ -271,6 +276,12 @@ and non-ASCII credentials); and eight are unit tests of key-configuration valida
 The isolation tests were mutation-checked by hand (not automated in CI): removing the session namespace, trusting the
 client's `user_id`, or failing open each makes tests fail.
 If authentication is required and no identity is present, the request is refused.
+`tests/test_authorization_roles.py` (55 test cases) covers the role gate through the real routes and middleware: every
+system-level route returns 401 without a credential, 403 for a per-user key and 200 for the operator key; a role cannot
+be claimed through headers or body fields; authorization is decided before the request body is validated; the gate fails
+closed when no middleware authenticated the request; and a guard test fails when any route lacks an explicit
+authorization decision. Twelve mutants (removing the gate from each router and handler, disabling the check, treating
+per-user keys as admin, adding an unclassified route) were all caught on a scratch copy; that check is not automated in CI.
 
 Known limits, stated plainly:
 
