@@ -46,6 +46,7 @@ class SecuritySettings:
     rate_limit_per_minute: int
     max_request_bytes: int
     keystore_enabled: bool = False
+    identity_rate_limit_per_minute: int = 120
 
 
 MIN_USER_KEY_LENGTH = 24
@@ -122,9 +123,12 @@ def load_security_settings() -> SecuritySettings:
         if origin.strip()
     )
     rate_limit = int(os.getenv("NEXUS_RATE_LIMIT_PER_MINUTE", "120"))
+    identity_rate_limit = int(os.getenv("NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE", str(rate_limit)))
     max_request_bytes = int(os.getenv("NEXUS_MAX_REQUEST_BYTES", str(25 * 1024 * 1024)))
     if rate_limit < 1:
         raise ValueError("NEXUS_RATE_LIMIT_PER_MINUTE must be at least 1")
+    if identity_rate_limit < 1:
+        raise ValueError("NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE must be at least 1")
     if max_request_bytes < 1024:
         raise ValueError("NEXUS_MAX_REQUEST_BYTES must be at least 1024")
 
@@ -138,6 +142,7 @@ def load_security_settings() -> SecuritySettings:
         rate_limit_per_minute=rate_limit,
         max_request_bytes=max_request_bytes,
         keystore_enabled=keystore_enabled,
+        identity_rate_limit_per_minute=identity_rate_limit,
     )
 
 
@@ -180,6 +185,11 @@ class SlidingWindowRateLimiter:
             return True, 0, max(0, self.limit - len(events))
 
 
+def _identity_bucket(principal: Principal) -> str:
+    """One budget per user; every administrator credential shares one (the operator is not a tenant)."""
+    return f"user:{principal.user_id}" if principal.scoped else "admin"
+
+
 def install_security(app, key_store=None) -> None:
     """Install authentication, request limits, response headers and CORS.
 
@@ -189,6 +199,7 @@ def install_security(app, key_store=None) -> None:
     """
     settings = load_security_settings()
     limiter = SlidingWindowRateLimiter(settings.rate_limit_per_minute)
+    identity_limiter = SlidingWindowRateLimiter(settings.identity_rate_limit_per_minute)
     app.state.security_settings = settings
     if key_store is None and settings.keystore_enabled:
         # imported on demand: constructing the store opens the application database
@@ -271,6 +282,16 @@ def install_security(app, key_store=None) -> None:
                     headers={"WWW-Authenticate": "Bearer"},
                 ))
             request.state.principal = principal
+            # The per-address limiter above runs before authentication, to protect it. This one is per credential
+            # owner: a key used from many addresses shares one budget. It does not separate users who sit behind one
+            # proxy (they still share the per-address budget); that needs trusted-proxy handling, not implemented.
+            identity_allowed, identity_retry_after, _ = identity_limiter.check(_identity_bucket(principal))
+            if not identity_allowed:
+                return secure_headers(JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded for this credential. Retry shortly."},
+                    headers={"Retry-After": str(identity_retry_after)},
+                ))
 
         try:
             response = await call_next(request)

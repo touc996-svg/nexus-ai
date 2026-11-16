@@ -33,7 +33,7 @@ re-derived. `requirements.txt`, `Dockerfile` and `render.yaml` are also unchange
 ## 1. Current architecture
 
 ```
-client -> security middleware (API key -> Principal, per-process rate limit, size cap, CORS, request id)
+client -> security middleware (API key -> Principal, per-process rate limits by address and by credential owner, size cap, CORS, request id)
        -> app/main.py (17 route handlers) + routers: /knowledge, /system/*, /health/*, /integrations/aegis-x/* (33 handlers in total)
 identity layer (app/security/identity.py): Principal = scoped user | operator | unauthenticated (dev/demo)
 orchestrator -> keyword router -> domain agent (enterprise | personal | cybersecurity) -> decision engine (heuristics)
@@ -78,7 +78,7 @@ Residual exposures that PR #4 did not close (read from the code, not exploited):
 | OIDC / JWT identity | NOT STARTED |
 | API-key rotation, expiry and revocation | PARTIALLY IMPLEMENTED: available for stored keys (opt-in key store); the environment keys are still plaintext, non-expiring and changed only by redeploying; there is no managed secret store or KMS, and management is by command line |
 | Roles or permissions beyond "scoped user" and "operator" | PARTIALLY IMPLEMENTED: two roles (`admin`, `user`) now gate the system-level routes; there are no finer permissions, per-route scopes or role claims from an identity provider |
-| Rate limiting | PARTIALLY IMPLEMENTED: a sliding-window limiter exists, but it is per process and keyed by the client address (`request.client.host`), so it is neither shared across workers nor per identity, and clients behind a proxy share one key |
+| Rate limiting | PARTIALLY IMPLEMENTED: a sliding-window limiter keyed by the client address runs before authentication, and a second one keyed by credential owner (each user; the administrator credentials together) runs after it, so one key used from many addresses shares one budget (`tests/test_rate_limit_identity.py`, 7 test cases; 8 of 8 mutants caught). Both are per process, so neither is shared across workers or instances (that needs a shared store such as Redis: BLOCKED, none available), and clients behind a proxy still share one per-address budget (trusted-proxy handling is not implemented) |
 
 ### 2.2 Evaluation, reproducibility and caches
 
@@ -117,7 +117,7 @@ Residual exposures that PR #4 did not close (read from the code, not exploited):
 
 | Check | Result | How verified |
 |---|---|---|
-| Full offline suite | 323 passed, 1 skipped, 0 failed (324 collected) | run locally with model inference blocked, at the head of this branch: `main` @ `39acbec` plus `tests/test_api_input_validation.py` (22 test cases), the role gate and `tests/test_authorization_roles.py` (55), the key store and `tests/test_keystore.py` (58); it was 188 passed, 1 skipped (189 collected) on `main` @ `39acbec` |
+| Full offline suite | 330 passed, 1 skipped, 0 failed (331 collected) | run locally with model inference blocked, at the head of this branch: `main` @ `39acbec` plus `tests/test_api_input_validation.py` (22 test cases), the role gate and `tests/test_authorization_roles.py` (55), the key store and `tests/test_keystore.py` (58), the per-identity limiter and `tests/test_rate_limit_identity.py` (7); it was 188 passed, 1 skipped (189 collected) on `main` @ `39acbec` |
 | The skipped test | `test_against_a_real_qdrant_server` | needs `EVALS_QDRANT_URL` |
 | Evaluation gate and frozen configuration | pass | `python -m evals.run --check`, `python -m evals.freeze_nexus_config --check` |
 | CI on the PR #5 head (`f9234e1`) | Python 3.11 and 3.12: 188 passed, 1 skipped, "quality gate passed"; Docker build success | read from the CI run logs |
@@ -145,7 +145,7 @@ Evaluation limitations (every one applies to the numbers in `docs/RAG_ADAPTER_EV
 - **L5. Production `NexusRAG` remains dense-only.**
 - **L6. Hybrid retrieval and LLM reranking are experimental evaluation-harness features, not production capabilities.** Their rows in the reports fuse or rerank production dense results inside the harness.
 - **L7. Tenant isolation does not mean complete authentication and authorization** (section 2.1): isolation is opt-in and the operator key is unrestricted. AEGIS-X, activity and system routes are administrator-only but return deployment-wide data, not per-user views.
-- **L8. OIDC/JWT and shared or per-identity rate limiting remain outstanding.** Key rotation, expiry and revocation exist only for stored keys (opt-in); the environment keys have none.
+- **L8. OIDC/JWT and shared (cross-instance) rate limiting remain outstanding.** Rate limiting is per credential owner as well as per address, but only within one process. Key rotation, expiry and revocation exist only for stored keys (opt-in); the environment keys have none.
 - **L9. Eight exploratory cache workload combinations remain unreplayable, and cleanup refuses to prune.** They are: dev `dense` and `broken` with the LLM answerer; held-out `bm25`, `tfidf`, `hybrid`, `dense`, `hybrid_dense` and `broken` with the LLM answerer. No test and no recorded report uses them and most were never computed. `python -m evals.prune_cache` exits 1 and changes nothing until the workload is narrowed to what tests and reports use. This is a known cleanup limitation, not a data-integrity issue; it is not addressed here.
 - **L10. Whether embedding without `nomic-embed-text` task prefixes affects quality is unresolved:** dev and held-out comparisons point in opposite directions by one or two questions.
 
@@ -230,7 +230,7 @@ The layer table and the API-boundary rows of section A were added later, on top 
 2. **Pin dependencies; add lint, type, dependency-audit and secret scanning to CI** (S5, Q1; unblocks `pip-audit`). Triage the 13 mypy errors first.
 3. **Keep `docs/UPGRADE_NOTES.md` aligned with the identity model.** Its identity paragraph was reconciled with the PR #4 behaviour in PR #8; re-check it whenever the identity model changes.
 4. **Run the Qdrant server test** (needs Docker running and a Qdrant container) to turn the "IMPLEMENTED BUT NOT VERIFIED" row into a verified one or a documented failure.
-5. **Complete authentication and authorization:** the AEGIS-X and global routes are now administrator-only, and stored keys can expire, be revoked and be rotated (both done on this branch); remaining: OIDC/JWT; identity-aware and shared rate limiting.
+5. **Complete authentication and authorization:** the AEGIS-X and global routes are now administrator-only, and stored keys can expire, be revoked and be rotated and rate limits are per credential owner as well as per address (all done on this branch); remaining: OIDC/JWT; a shared rate-limit store.
 6. **Phase 3, AI security hardening** (S2): prompt-injection and indirect-injection tests, PII handling, output validation, red-team suite, tool permission boundaries. Not started by this update.
 7. Production RAG improvements (hybrid, reranking, cited answers with abstention), then orchestration and approval gates, observability, multimodal, deployment hardening. Use the evaluation harness to decide which retrieval changes actually help, noting L1 to L3.
 

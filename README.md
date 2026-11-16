@@ -215,7 +215,7 @@ Batch 3 adds API-key authentication, request-size limits, process-local sliding-
 
 ### Runtime controls
 
-Configure `NEXUS_RATE_LIMIT_PER_MINUTE`, `NEXUS_MAX_REQUEST_BYTES` (for requests with a declared `Content-Length`), and `NEXUS_CORS_ORIGINS` through environment variables. CORS is disabled for cross-origin browser traffic unless exact trusted origins are configured. The rate limiter is in-memory and per process; for multiple workers or replicas, enforce shared limits at an API gateway or reverse proxy. NEXUS does not trust client-supplied `X-Forwarded-For` for rate-limit identity.
+Configure `NEXUS_RATE_LIMIT_PER_MINUTE`, `NEXUS_MAX_REQUEST_BYTES` (for requests with a declared `Content-Length`), and `NEXUS_CORS_ORIGINS` through environment variables. CORS is disabled for cross-origin browser traffic unless exact trusted origins are configured. The rate limiter is in-memory and per process; for multiple workers or replicas, enforce shared limits at an API gateway or reverse proxy. NEXUS does not trust client-supplied `X-Forwarded-For` for rate-limit identity. Authenticated requests also spend a per-credential-owner budget (`NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE`, default: the per-address limit), so one key used from many addresses shares one budget and each user, and the administrator credentials together, have their own; that budget is in memory and per process too. Users behind one proxy still share the per-address budget.
 
 ### Health checks and containers
 
@@ -315,8 +315,9 @@ Known limits, stated plainly:
   sessions are stored under a new namespace). Migrating old data is manual.
 - With authentication switched off (local development, public demo mode) there is no identity and no
   enforcement. Never put real data behind that mode.
-- The rate limiter is still per-process and keyed by client address, and the activity log is global (it holds
-  agent names, durations and error text, not user content).
+- Rate limits are per process, not shared across workers or instances (a per-address limit before authentication
+  and a per-credential-owner limit after it), and the activity log is global (it holds agent names, durations and
+  error text, not user content).
 
 ---
 

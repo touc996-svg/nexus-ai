@@ -56,6 +56,10 @@ judgments, or ground-truth accuracy measurements.
 
 The public demo now blocks `/activity/summary` as well as the other activity
 history paths. The in-process sliding-window limiter bounds its client-key map.
+Authenticated requests also spend a per-credential-owner budget
+(`NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE`, default: the per-address limit), so
+one key used from many addresses shares one budget; like the per-address limit it
+is per process, not shared across workers.
 Chat logging no longer prints user IDs or RAG scores. The existing API-key
 middleware, request-size check for declared `Content-Length`, response headers,
 and explicit-origin CORS policy remain in place.
