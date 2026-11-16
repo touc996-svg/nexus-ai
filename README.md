@@ -285,6 +285,18 @@ python -m app.security.keystore rotate k_1a2b3c4d5e6f --overlap-days 7
 python -m app.security.keystore revoke k_1a2b3c4d5e6f
 ```
 
+- **Bearer tokens (JWT, HS256 only; this is not OIDC).** With `NEXUS_JWT_SECRETS` (one secret of at least 32 bytes, or two
+  while rotating), `NEXUS_JWT_ISSUER` and `NEXUS_JWT_AUDIENCE` set, `Authorization: Bearer <token>` also accepts a token signed
+  with that secret by an issuer you trust, such as a gateway or an internal token service. The token must be HS256 (no
+  `none`, no other algorithm), carry a matching `iss` and `aud`, an `exp` (required, no further away than
+  `NEXUS_JWT_MAX_LIFETIME_SECONDS`, default 24 h) and a `sub` that is a valid user id; `nbf` and `iat` may not be in the
+  future (leeway `NEXUS_JWT_LEEWAY_SECONDS`, default 30 s). The user is the verified `sub`, and **no claim can make a token an
+  administrator**. A misconfiguration (a secret without an issuer and audience, a short or duplicated secret) stops the
+  application at startup, and enabling tokens turns authentication on (an environment key is still required). Limits: the shared
+  secret is a master credential for every non-administrator user; a token cannot be revoked before it expires (keep them short);
+  there is no `jti` replay tracking; and asymmetric signatures (RS256, ES256), JWKS and OIDC discovery are not implemented,
+  because they need `cryptography` and a network path to an identity provider.
+
 `tests/test_tenant_isolation.py` has 20 tests. Eight exercise cross-user isolation through the real routes and
 middleware (memory, profile, knowledge and chat); two check the boundary controls (a user may name themselves, the
 operator key stays unrestricted); two check authentication behaviour through the middleware (unauthenticated, wrong
@@ -305,12 +317,20 @@ environment keys; the command line (a key is printed once, a store that will not
 stored keys through the real middleware and routes, including the same cross-user and administrator-only rules as
 environment keys; the 503 fail-closed path; and that enabling the store turns authentication on. Twenty-seven mutants of
 the store, the middleware and the command line were all caught on a scratch copy (not automated in CI).
+`tests/test_jwt_auth.py` (102 test cases) forges tokens by hand: 60 distinct ways a token can be wrong (`alg` none, a
+different algorithm, a lower-case or missing `alg`, key-pointing headers, a wrong or truncated signature, a payload or
+header replaced after signing, wrong or missing issuer, audience, expiry, `nbf`, `iat` and subject, exp beyond the maximum
+lifetime, non-numeric and boolean times, duplicate keys, NaN, malformed or oversized tokens) are all refused, and a
+fuzz of random strings never raises; no claim (`role`, `admin`, `scope`, ...) makes a token an administrator; the
+configuration fails at startup when partial; and token identities obey the same cross-user and administrator-only
+rules as keys through the real routes. Thirty-four mutants were all caught on a scratch copy (not automated in CI).
 
 Known limits, stated plainly:
 
 - The environment keys (`NEXUS_API_KEY`, `NEXUS_API_KEYS`) are plaintext, never expire and change only by redeploying.
   Stored keys fix that for the keys issued through the key store, but the store is one SQL table with command-line
-  management, not a managed secret service. OIDC/JWT is the production answer and is not implemented.
+  management, not a managed secret service. OIDC is the production answer and is not implemented; the HS256 bearer tokens
+  above are a smaller thing, for a trusted issuer that shares a secret.
 - Sessions and profiles created before this change are reachable only with the operator key (a scoped user's
   sessions are stored under a new namespace). Migrating old data is manual.
 - With authentication switched off (local development, public demo mode) there is no identity and no
