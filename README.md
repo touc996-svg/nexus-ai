@@ -396,3 +396,11 @@ Reading it honestly:
   metric might.
 - 27 questions on one 13-document corpus is still small, and I wrote both sets, so this is not an
   independent benchmark.
+
+### Evaluating the real NexusRAG
+
+`evals/nexus_adapter.py` runs the harness against the production `NexusRAG` (real ingestion, chunking, tenant filter, score threshold and
+Qdrant client calls) in an isolated collection, with the embedding response replayed from a fingerprinted cache. It uses qdrant-client in its
+in-process local mode; **a Qdrant server was not tested**. Hybrid and reranking rows are harness experiments, not production features. Results,
+the frozen configuration, the cache incident and its verified recovery (44 of 44 rebuilt entries matched; 12 of 12 reports replay exactly), and known
+limitations, including a cleanup-tool limitation, are in [docs/RAG_ADAPTER_EVALUATION.md](docs/RAG_ADAPTER_EVALUATION.md).

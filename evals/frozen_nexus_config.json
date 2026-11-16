@@ -1,0 +1,40 @@
+{
+  "datasets": {
+    "corpus.jsonl": "fefa690b1bfd6a5b",
+    "heldout.jsonl": "ecbdad0cced3dee0",
+    "questions.jsonl": "1f75803a79199a3e"
+  },
+  "harness": {
+    "answer_context_k": 3,
+    "answerers": [
+      "extractive",
+      "llm (structured output, fails closed)"
+    ],
+    "embed_model_env_default": "nomic-embed-text",
+    "fusion_depth": 20,
+    "generator_fingerprint": "293938d9180f4474",
+    "generator_model": "qwen3:4b",
+    "judge_fingerprint": "1202d3e4e027184e",
+    "rerank_depth": 5,
+    "rerank_model": "qwen3:1.7b",
+    "rrf_k": 60,
+    "search_depth": 10
+  },
+  "note": "No parameter was tuned. Production defaults are recorded as they are.",
+  "production": {
+    "chunk_overlap": 150,
+    "chunk_size": 1000,
+    "collection": "nexus_eval_<random> (isolated; production collection never used)",
+    "distance": "cosine",
+    "embedding_dimension": 768,
+    "embedding_model": "nomic-embed-text",
+    "rag_py_sha": "b8970ae55fb7990e",
+    "score_threshold": 0.15,
+    "tenant_filter": "user_id (unique per evaluation run)"
+  },
+  "systems": [
+    "nexus_dense",
+    "nexus_hybrid",
+    "nexus_rerank"
+  ]
+}

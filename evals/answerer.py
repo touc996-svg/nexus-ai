@@ -83,7 +83,10 @@ class LLMAnswerer:
         if not hits:
             return Answer("I don't have enough information to answer that.", [], True)
         passages = [(doc_id, self.corpus[doc_id]) for doc_id, _ in hits]
-        text = self.generator.generate(question, passages)
+        return self.interpret(self.generator.generate(question, passages), passages)
+
+    def interpret(self, text: str, passages) -> Answer:
+        """Turn raw model output into an Answer (structured JSON, or legacy text), failing closed."""
         structured = self._parse_structured(text)
         if structured is not None:
             return self._from_structured(structured, passages)
