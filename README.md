@@ -203,7 +203,7 @@ The benchmark reports response availability, expected-signal coverage, pass rate
 
 ## Production Security and Deployment
 
-Batch 3 adds API-key authentication, request-size limits, process-local sliding-window rate limiting, explicit CORS origins, security response headers, request IDs, dependency-aware readiness checks, and a non-root Docker runtime.
+Batch 3 adds API-key authentication, request-size limits, process-local sliding-window rate limiting, explicit CORS origins, security response headers, request IDs, dependency-aware readiness checks, and a non-root Docker runtime. `docs/RELEASE_READINESS.md` lists what has been verified, what has not, and what is blocked, and is the page to read before calling a deployment ready.
 
 ### API authentication
 
