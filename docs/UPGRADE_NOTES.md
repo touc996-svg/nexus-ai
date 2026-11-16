@@ -60,14 +60,25 @@ Chat logging no longer prints user IDs or RAG scores. The existing API-key
 middleware, request-size check for declared `Content-Length`, response headers,
 and explicit-origin CORS policy remain in place.
 
-**Identity limitation:** `NEXUS_API_KEY` is one shared service credential. It is
-not a user identity provider and does not authenticate the `user_id` or
-`session_id` supplied in request bodies. SQLite and Qdrant filters separate data
-by the supplied identifier, but that identifier is not cryptographically bound
-to an authenticated principal. Run persistent-memory/profile/RAG features only
-in a trusted local or single-operator environment until OIDC/JWT authentication
-and per-user authorization are implemented. Do not expose them as a multi-tenant
-production service based on the shared API key alone.
+**Identity limitation (updated for tenant isolation):** two credential types are
+now supported. A per-user key (`NEXUS_API_KEYS`) binds a request to one user: a
+request that names another `user_id` is refused with 403, and chat/memory
+`session_id`s are stored in a per-user namespace, so one user cannot read or
+overwrite another user's memory, profile or knowledge by naming them.
+`NEXUS_API_KEY` remains one shared operator credential with access to every
+user's data, and a deployment that sets only that key gets no isolation.
+Sessions and profiles created before this change are reachable only with the
+operator key. When authentication is switched off (local development, public
+demo) there is no identity and no enforcement.
+
+This is tenant isolation, not complete authentication and authorization. Keys are
+environment variables (no rotation, expiry or revocation), OIDC/JWT identity is
+not implemented, there are no roles beyond scoped user and operator, the
+AEGIS-X, activity and system endpoints are not scoped to a user, and rate
+limiting is per-process and per-client-address. Do not expose persistent-memory,
+profile or RAG features as a multi-tenant production service on this basis alone.
+See the "Identity and tenant isolation" section of `README.md` and section 2.1
+of `docs/ENGINEERING_AUDIT.md`.
 
 ## 8. Testing and CI/CD
 
