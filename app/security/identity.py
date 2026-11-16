@@ -64,6 +64,20 @@ def get_principal(request: Request) -> Principal:
     return UNAUTHENTICATED
 
 
+def is_valid_user_id(value) -> bool:
+    """The rule for a user id wherever one is issued or asserted (stored keys, token subjects).
+
+    1 to 128 printable characters without spaces, and not the reserved shared-pool id. NEXUS_API_KEYS entries
+    follow the same rule (hardening.parse_user_keys); tests keep the three in step.
+    """
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= 128
+        and all(ord(c) >= 33 for c in value)
+        and value != SYSTEM_USER
+    )
+
+
 def require_admin(principal: Annotated[Principal, Depends(get_principal)]) -> Principal:
     """Dependency for system-level routes: administrator credentials only.
 

@@ -38,8 +38,8 @@ from app.security.identity import (
     OPERATOR,
     ROLE_ADMIN,
     ROLE_USER,
-    SYSTEM_USER,
     Principal,
+    is_valid_user_id,
 )
 
 KEY_PREFIX = "nxk_"
@@ -95,11 +95,8 @@ def hash_key(raw_key: str) -> str:
 
 
 def _validate_user_id(user_id: str) -> str:
-    # The same rules as NEXUS_API_KEYS entries (hardening.parse_user_keys).
-    if not isinstance(user_id, str) or not 1 <= len(user_id) <= 128 or any(ord(c) < 33 for c in user_id):
-        raise KeyStoreError("user id must be 1 to 128 printable characters without spaces")
-    if user_id == SYSTEM_USER:
-        raise KeyStoreError("the user id 'system' is reserved (the shared pool)")
+    if not is_valid_user_id(user_id):
+        raise KeyStoreError("user id must be 1 to 128 printable characters without spaces, and not 'system'")
     return user_id
 
 

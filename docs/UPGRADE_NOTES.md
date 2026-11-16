@@ -97,10 +97,22 @@ read, a stored key gets 503, never access. Keys are managed only from the comman
 line, which prints the database it changed (password hidden): run it with the same
 `DATABASE_URL` as the server.
 
+**Bearer tokens (opt-in, HS256 only, not OIDC):** set `NEXUS_JWT_SECRETS`,
+`NEXUS_JWT_ISSUER` and `NEXUS_JWT_AUDIENCE` to also accept
+`Authorization: Bearer <token>` signed with a shared secret by a trusted issuer.
+Only HS256 is accepted; `iss`, `aud`, `exp` (required, at most
+`NEXUS_JWT_MAX_LIFETIME_SECONDS` away) and a valid `sub` are checked, and `nbf` and
+`iat` may not be in the future. The user is the verified `sub`; no claim can make a
+token an administrator. A partial configuration stops the application at startup,
+and enabling tokens turns authentication on (an environment key is still
+required). Tokens cannot be revoked before they expire, and there is no replay
+tracking. RS256/ES256, JWKS and OIDC discovery are not implemented: they need
+`cryptography` and a network path to an identity provider.
+
 This is tenant isolation, not complete authentication and authorization. The
 environment keys have no rotation, expiry or revocation (stored keys do, when
-enabled), OIDC/JWT identity is
-not implemented, there are only two roles (administrator, which is the operator
+enabled), OIDC identity is not implemented (HS256 bearer tokens are, when
+configured), there are only two roles (administrator, which is the operator
 key, and scoped user), the AEGIS-X, activity and system endpoints are
 administrator-only but return deployment-wide data rather than per-user views, and rate
 limiting is per-process and per-client-address. Do not expose persistent-memory,
