@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from .retrievers import SYSTEMS
+from .retrievers import NEXUS_SYSTEMS, SYSTEMS
 from .harness import check_against_baseline, evaluate, flatten
 
 BASELINE = Path(__file__).parent / "baseline.json"
@@ -22,10 +22,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tolerance", type=float, default=0.02)
     p.add_argument("--output", type=Path, help="write the full JSON report here")
     p.add_argument("--compare", action="store_true", help="print a side-by-side of every system")
+    p.add_argument("--with-nexus", action="store_true", help="include the real NexusRAG systems in --compare")
     args = p.parse_args(argv)
 
     if args.compare:
         names = ["bm25", "tfidf", "hybrid", "dense", "hybrid_dense", "rerank"]
+        if args.with_nexus:
+            names += NEXUS_SYSTEMS
         reports = {n: flatten(evaluate(n)["summary"]) for n in names}
         keys = list(reports["bm25"])
         print(f"{'metric':32}" + "".join(f"{n:>13}" for n in names))
