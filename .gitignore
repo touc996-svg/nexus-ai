@@ -31,3 +31,4 @@ htmlcov/
 artifacts/agent_evaluation_*.json
 evals/reports/.rss_*
 evals/reports/.time_*
+evals/cache/*.lock

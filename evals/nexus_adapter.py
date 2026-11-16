@@ -21,6 +21,7 @@ from time import perf_counter
 import hashlib
 from pathlib import Path
 
+from . import ollama
 from .ollama import CacheMiss, JsonCache, _key, fingerprint
 
 # Entries written during the first (aborted) run used a key without the configuration; they were computed by the
@@ -61,6 +62,8 @@ class ReplayedEmbedding:
         key = _key("nexus-embed", self.config, text)
         hit = self.cache.get_or_adopt(key, _key(self.model, "nexus-embed", text), self.config in LEGACY_EMBED_CONFIGS)
         if hit is None:
+            if ollama.INFERENCE_BLOCKED:
+                raise CacheMiss("embedding not cached and model inference is blocked in this process")
             try:
                 vector = self.real(text)
             except RuntimeError as exc:  # NexusRAG.embed wraps every transport failure in RuntimeError

@@ -118,6 +118,7 @@ def test_cache_miss_with_ollama_down_raises_instead_of_guessing(tmp_path, monkey
 def test_recorded_latency_is_stored_with_the_vector(tmp_path, monkeypatch):
     from evals import ollama
 
+    monkeypatch.setattr(ollama, "INFERENCE_BLOCKED", False)  # the embedder here is a local fake, not a model
     monkeypatch.setattr(ollama, "CACHE_DIR", tmp_path)
     embed = ReplayedEmbedding(lambda text: [0.1, 0.2], "m")
     embed("x")
@@ -183,6 +184,7 @@ def test_embedding_key_changes_with_model_dimension_and_production_code(tmp_path
 def test_a_vector_cached_under_one_configuration_is_not_served_to_another(tmp_path, monkeypatch):
     from evals import ollama
 
+    monkeypatch.setattr(ollama, "INFERENCE_BLOCKED", False)  # the embedder here is a local fake, not a model
     monkeypatch.setattr(ollama, "CACHE_DIR", tmp_path)
     ReplayedEmbedding(lambda t: [1.0], "model-a", 768)("same text")
     other = ReplayedEmbedding(lambda t: [2.0], "model-b", 768)
@@ -273,3 +275,19 @@ def test_frozen_configuration_still_matches_the_live_one():
     import json as _json
 
     assert _json.loads(FROZEN.read_text()) == current_config()
+
+
+@pytest.mark.integration_local_qdrant
+@pytest.mark.parametrize("split", ["dev", "heldout"])
+@pytest.mark.parametrize("system", ["nexus_dense", "nexus_hybrid", "nexus_rerank"])
+@pytest.mark.parametrize("answerer", ["extractive", "llm"])
+def test_recorded_reports_replay_exactly(system, answerer, split, no_network):
+    """The committed machine-readable reports are the single recorded runs; a replay must reproduce them."""
+    import json as _json
+    from pathlib import Path
+
+    path = Path(nexus_adapter.__file__).parent / "reports" / f"{split}_{system}_{answerer}.json"
+    recorded = _json.loads(path.read_text())
+    replay = evaluate(system, answerer=answerer, split=split)
+    assert replay["summary"] == recorded["summary"]
+    assert replay["failures"] == recorded["failures"]
