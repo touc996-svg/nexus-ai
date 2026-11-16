@@ -31,6 +31,22 @@ def _key(*parts: str) -> str:
     return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
 
 
+def fingerprint(*parts) -> str:
+    """Stable short hash of everything that determines a computation (prompt, schema, options, model...)."""
+    return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+# Entries cached before keys carried a configuration fingerprint are adopted under the new key only while the
+# current configuration still equals the one in force when they were written. Edit a prompt, schema or option
+# and the fingerprint changes, adoption stops, and the computation is redone instead of reusing a stale value.
+# The fingerprints below were computed from the prompts, schema and options as they stood when those entries
+# were written (unchanged since: see git history of this file).
+LEGACY_ADOPTABLE = {
+    "judge": {"1202d3e4e027184e"},                              # qwen3:1.7b relevance judge
+    "structured": {"293938d9180f4474", "5210eaa191c41aa3"},     # qwen3:4b and qwen3:1.7b structured generation
+}
+
+
 class JsonCache:
     def __init__(self, name: str):
         self.path = CACHE_DIR / name
@@ -40,6 +56,15 @@ class JsonCache:
 
     def get(self, key):
         return self.data.get(key)
+
+    def get_or_adopt(self, key, legacy_key, legacy_allowed: bool):
+        """Return the value under ``key``; otherwise adopt a pre-fingerprint entry when it is provably the same config."""
+        hit = self.data.get(key)
+        if hit is None and legacy_allowed:
+            hit = self.data.get(legacy_key)
+            if hit is not None:
+                self.put(key, hit)
+        return hit
 
     def put(self, key, value):
         self.data[key] = value
@@ -100,17 +125,21 @@ class LLMJudge:
               "How well does the passage contain the information needed to answer the question? "
               "Reply with a single integer from 0 (irrelevant) to 10 (fully answers it). Reply with the number only.")
 
+    OPTIONS = {"temperature": 0, "seed": 0, "num_predict": 8}
+
     def __init__(self, model: str = RERANK_MODEL):
         self.model, self.cache = model, JsonCache("rerank.json")
+        self.config = fingerprint("judge", model, self.PROMPT, self.OPTIONS)
 
     def score(self, question: str, passage: str) -> int:
-        key = _key(self.model, question, passage)
-        hit = self.cache.get(key)
+        key = _key("judge", self.config, question, passage)
+        hit = self.cache.get_or_adopt(key, _key(self.model, question, passage),
+                                      self.config in LEGACY_ADOPTABLE["judge"])
         if hit is not None:
             return hit
         out = _post("/api/chat", {
             "model": self.model, "stream": False, "think": False,
-            "options": {"temperature": 0, "seed": 0, "num_predict": 8},
+            "options": self.OPTIONS,
             "messages": [{"role": "user", "content": self.PROMPT.format(q=question, p=passage)}],
         })["message"]["content"]
         m = _SCORE.search(out)
@@ -150,21 +179,27 @@ class LLMGenerator:
         "{passages}\n\nQuestion: {q}\nAnswer:"
     )
 
+    OPTIONS = {"temperature": 0, "seed": 0, "num_predict": 200}
+
     def __init__(self, model: str | None = None, structured: bool = True):
         self.model, self.structured = model or GEN_MODEL, structured
         self.cache = JsonCache("generate.json")
+        prompt = self.STRUCTURED_PROMPT if structured else self.FREE_TEXT_PROMPT
+        self.config = fingerprint("generate", self.model, structured, prompt, self.OPTIONS,
+                                  self.SCHEMA if structured else None)
 
     def generate(self, question: str, passages: list[tuple[str, str]]) -> str:
         block = "\n".join(f"[{i}] {t}" for i, t in passages)
         mode = "structured" if self.structured else "generate"
-        key = _key(self.model, mode, question, block)
-        hit = self.cache.get(key)
+        key = _key("generate", self.config, question, block)  # block = the exact retrieved context, in order
+        hit = self.cache.get_or_adopt(key, _key(self.model, mode, question, block),
+                                      self.structured and self.config in LEGACY_ADOPTABLE["structured"])
         if hit is not None:
             return hit
         prompt = (self.STRUCTURED_PROMPT if self.structured else self.FREE_TEXT_PROMPT)
         payload = {
             "model": self.model, "stream": False, "think": False,
-            "options": {"temperature": 0, "seed": 0, "num_predict": 200},
+            "options": self.OPTIONS,
             "messages": [{"role": "user", "content": prompt.format(passages=block, q=question)}],
         }
         if self.structured:

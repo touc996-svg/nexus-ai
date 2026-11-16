@@ -1,0 +1,647 @@
+{
+  "system": "nexus_rerank",
+  "answerer": "extractive",
+  "split": "dev",
+  "hallucinating_answerer": false,
+  "counts": {
+    "answerable": 25,
+    "unanswerable": 4,
+    "documents": 13
+  },
+  "summary": {
+    "retrieval": {
+      "hit_at_1": 0.92,
+      "recall_at_3": 0.96,
+      "mrr": 0.95,
+      "ndcg_at_3": 0.942
+    },
+    "answer": {
+      "correct_rate": 0.84,
+      "faithfulness": 1.0,
+      "citation_precision": 0.7174
+    },
+    "abstention": {
+      "correct_rate": 1.0,
+      "false_rate": 0.08
+    }
+  },
+  "failures": [
+    "q08",
+    "q12",
+    "q23",
+    "q25"
+  ],
+  "per_question": [
+    {
+      "id": "q01",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d01",
+        "d02",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d01"
+      ],
+      "answer": "The schema keeps the raw provider payload, the native severity and the native identifier next to the normalized fields so analysts can always return to the original evidence. AEGIS-X converts findings from GuardDuty, Security Hub, Sentinel, Defender for Cloud and Security Command Center into one common JSON schema.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q02",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d01",
+        "d10",
+        "d02"
+      ],
+      "abstained": false,
+      "citations": [
+        "d01",
+        "d10"
+      ],
+      "answer": "AEGIS-X converts findings from GuardDuty, Security Hub, Sentinel, Defender for Cloud and Security Command Center into one common JSON schema. The NEXUS cybersecurity agent can summarize and explain AEGIS-X incidents through a read only integration.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q03",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d02",
+        "d04",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d02",
+        "d04"
+      ],
+      "answer": "Duplicate findings are collapsed using deterministic finding identifiers. The ingestion Lambda writes each finding to an S3 key derived from its finding identifier, so a redelivery overwrites the object instead of creating a duplicate.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q04",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d02",
+        "d04",
+        "d11"
+      ],
+      "abstained": false,
+      "citations": [
+        "d02"
+      ],
+      "answer": "Security Hub re-reports GuardDuty findings, so its normalizer parses the GuardDuty finding ARN and records the equivalent identifier in related_finding_ids.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q05",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d03",
+        "d02",
+        "d04"
+      ],
+      "abstained": false,
+      "citations": [
+        "d03",
+        "d02"
+      ],
+      "answer": "Correlation links findings that occur within a 120 minute window and share weighted keys. Duplicate findings are collapsed using deterministic finding identifiers.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q06",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d03",
+        "d06",
+        "d11"
+      ],
+      "abstained": false,
+      "citations": [
+        "d03"
+      ],
+      "answer": "Resource, principal and threat intelligence indicator each score 3, while account and MITRE technique each score 1. Correlation links findings that occur within a 120 minute window and share weighted keys.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q07",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d03",
+        "d02",
+        "d04"
+      ],
+      "abstained": false,
+      "citations": [
+        "d03",
+        "d02"
+      ],
+      "answer": "Two findings are linked when their score is at least 2, and incidents are connected components of those links. Duplicate findings are collapsed using deterministic finding identifiers.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q08",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d04",
+        "d13",
+        "d12"
+      ],
+      "abstained": false,
+      "citations": [
+        "d04"
+      ],
+      "answer": "EventBridge and SQS can deliver the same event more than once.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": false,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q09",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d04",
+        "d02",
+        "d12"
+      ],
+      "abstained": false,
+      "citations": [
+        "d04"
+      ],
+      "answer": "The ingested_at timestamp refreshes on replay and nothing else changes. EventBridge and SQS can deliver the same event more than once.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q10",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d05",
+        "d03",
+        "d02"
+      ],
+      "abstained": false,
+      "citations": [
+        "d05",
+        "d02"
+      ],
+      "answer": "GuardDuty severity bands are Low from 1 to 3.9, Medium from 4 to 6.9, High from 7 to 8.9 and Critical from 9 upward. Security Hub re-reports GuardDuty findings, so its normalizer parses the GuardDuty finding ARN and records the equivalent identifier in related_finding_ids.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q11",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d05",
+        "d01",
+        "d12"
+      ],
+      "abstained": false,
+      "citations": [
+        "d05",
+        "d01"
+      ],
+      "answer": "GuardDuty severity bands are Low from 1 to 3.9, Medium from 4 to 6.9, High from 7 to 8.9 and Critical from 9 upward. The schema keeps the raw provider payload, the native severity and the native identifier next to the normalized fields so analysts can always return to the original evidence.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q12",
+      "difficulty": "hard",
+      "answerable": true,
+      "retrieved": [
+        "d10",
+        "d07",
+        "d08"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that.",
+      "hit_at_1": 0.0,
+      "recall_at_3": 0.0,
+      "rr": 0.25,
+      "ndcg_at_3": 0.0,
+      "correct": false
+    },
+    {
+      "id": "q13",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d06",
+        "d12",
+        "d08"
+      ],
+      "abstained": false,
+      "citations": [
+        "d06",
+        "d08"
+      ],
+      "answer": "A policy test parses the Terraform with python-hcl2 and fails if a master switch defaults to true or if a resource ignores the switches. A read only script checks that the root user has MFA enabled and no access keys, that CloudTrail is healthy and that GuardDuty is enabled.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q14",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d07",
+        "d04",
+        "d08"
+      ],
+      "abstained": false,
+      "citations": [
+        "d07",
+        "d04"
+      ],
+      "answer": "Terraform S3 buckets must have a public access block, KMS encryption and versioning. The ingestion Lambda writes each finding to an S3 key derived from its finding identifier, so a redelivery overwrites the object instead of creating a duplicate.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q15",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d07",
+        "d08",
+        "d02"
+      ],
+      "abstained": false,
+      "citations": [
+        "d07"
+      ],
+      "answer": "The account level S3 public access block is codified in the governance module and protected with prevent_destroy. Terraform S3 buckets must have a public access block, KMS encryption and versioning.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q16",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d08",
+        "d10",
+        "d07"
+      ],
+      "abstained": false,
+      "citations": [
+        "d08"
+      ],
+      "answer": "Administrative access uses an IAM Identity Center role instead of root credentials. A read only script checks that the root user has MFA enabled and no access keys, that CloudTrail is healthy and that GuardDuty is enabled.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q17",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d08",
+        "d10",
+        "d12"
+      ],
+      "abstained": false,
+      "citations": [
+        "d08",
+        "d10"
+      ],
+      "answer": "A read only script checks that the root user has MFA enabled and no access keys, that CloudTrail is healthy and that GuardDuty is enabled. The NEXUS cybersecurity agent can summarize and explain AEGIS-X incidents through a read only integration.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q18",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d09",
+        "d10",
+        "d11"
+      ],
+      "abstained": false,
+      "citations": [
+        "d09"
+      ],
+      "answer": "NEXUS AI is a FastAPI application with three agent domains: enterprise, personal and cybersecurity. An orchestrator routes each request to a domain agent, and a decision engine assigns priority and risk.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q19",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d09",
+        "d06",
+        "d01"
+      ],
+      "abstained": false,
+      "citations": [
+        "d09"
+      ],
+      "answer": "An orchestrator routes each request to a domain agent, and a decision engine assigns priority and risk.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q20",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d10",
+        "d09",
+        "d11"
+      ],
+      "abstained": false,
+      "citations": [
+        "d09",
+        "d10"
+      ],
+      "answer": "NEXUS AI is a FastAPI application with three agent domains: enterprise, personal and cybersecurity. It has no cloud credentials and no ability to execute actions, so any response automation would require human approval.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q21",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d11",
+        "d04",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d11"
+      ],
+      "answer": "NEXUS stores document chunks in Qdrant with embeddings from the nomic-embed-text model served by Ollama.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "q22",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d11",
+        "d02",
+        "d06"
+      ],
+      "abstained": false,
+      "citations": [
+        "d11",
+        "d06"
+      ],
+      "answer": "Search filters by user identifier and applies a minimum similarity score of 0.15 by default. A policy test parses the Terraform with python-hcl2 and fails if a master switch defaults to true or if a resource ignores the switches.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q23",
+      "difficulty": "hard",
+      "answerable": true,
+      "retrieved": [
+        "d06",
+        "d12",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d06",
+        "d12"
+      ],
+      "answer": "A policy test parses the Terraform with python-hcl2 and fails if a master switch defaults to true or if a resource ignores the switches. Tests include per-normalizer unit tests, schema validation of every output, an end-to-end flow from raw provider payloads to incidents, and recovery tests for partial failure and dead letter queue replay.",
+      "hit_at_1": 0.0,
+      "recall_at_3": 1.0,
+      "rr": 0.5,
+      "ndcg_at_3": 0.6309297535714575,
+      "correct": false,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q24",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d13",
+        "d02",
+        "d01"
+      ],
+      "abstained": false,
+      "citations": [
+        "d13",
+        "d01"
+      ],
+      "answer": "Running the GuardDuty normalizer on real findings from the CLI failed because the CLI returns PascalCase keys while EventBridge returns camelCase. AEGIS-X converts findings from GuardDuty, Security Hub, Sentinel, Defender for Cloud and Security Command Center into one common JSON schema.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 0.5
+    },
+    {
+      "id": "q25",
+      "difficulty": "multi_hop",
+      "answerable": true,
+      "retrieved": [
+        "d04",
+        "d10",
+        "d02"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 0.9197207891481876,
+      "correct": false
+    },
+    {
+      "id": "u01",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d07",
+        "d08",
+        "d06"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "u02",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d07",
+        "d12",
+        "d11"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "u03",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d12",
+        "d11",
+        "d07"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "u04",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d11",
+        "d12",
+        "d06"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    }
+  ],
+  "timing_ms": {
+    "p50": 0.571,
+    "max": 1.306
+  }
+}
