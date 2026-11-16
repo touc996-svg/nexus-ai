@@ -1,0 +1,572 @@
+{
+  "system": "rerank",
+  "answerer": "llm",
+  "split": "heldout",
+  "hallucinating_answerer": false,
+  "counts": {
+    "answerable": 21,
+    "unanswerable": 6,
+    "documents": 13
+  },
+  "summary": {
+    "retrieval": {
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_3": 0.9962
+    },
+    "answer": {
+      "correct_rate": 0.8095,
+      "faithfulness": 0.8455,
+      "citation_precision": 1.0
+    },
+    "abstention": {
+      "correct_rate": 1.0,
+      "false_rate": 0.0952
+    }
+  },
+  "failures": [
+    "h03",
+    "h04",
+    "h10",
+    "h20"
+  ],
+  "per_question": [
+    {
+      "id": "h01",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d02",
+        "d01",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d02"
+      ],
+      "answer": "The equivalent identifier in related_finding_ids is recorded so that a re-reported Security Hub finding can be matched to its GuardDuty original.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.6666666666666666,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h02",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d02",
+        "d04",
+        "d06"
+      ],
+      "abstained": false,
+      "citations": [
+        "d02"
+      ],
+      "answer": "The earliest first_seen and latest last_seen values survive when duplicates are merged.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.5,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h03",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d03",
+        "d04",
+        "d02"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": false
+    },
+    {
+      "id": "h04",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d03",
+        "d02",
+        "d04"
+      ],
+      "abstained": false,
+      "citations": [
+        "d03"
+      ],
+      "answer": "Separate groups of linked findings are turned into incidents by connecting them as components of the links where the score is at least 2.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": false,
+      "faithfulness": 0.6666666666666666,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h05",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d04",
+        "d02",
+        "d11"
+      ],
+      "abstained": false,
+      "citations": [
+        "d04"
+      ],
+      "answer": "EventBridge and SQS can deliver the same event more than once.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h06",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d04",
+        "d07",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d04"
+      ],
+      "answer": "The ingestion Lambda writes each finding to an S3 key derived from its finding identifier",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h07",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d05",
+        "d03",
+        "d02"
+      ],
+      "abstained": false,
+      "citations": [
+        "d05"
+      ],
+      "answer": "A GuardDuty finding is considered Medium up to a score of 6.9.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.42857142857142855,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h08",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d06",
+        "d12",
+        "d07"
+      ],
+      "abstained": false,
+      "citations": [
+        "d06"
+      ],
+      "answer": "python-hcl2",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h09",
+      "difficulty": "hard",
+      "answerable": true,
+      "retrieved": [
+        "d06",
+        "d12",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d06"
+      ],
+      "answer": "The cost policy test fails if a master switch defaults to true or if a resource ignores the switches.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.9090909090909091,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h10",
+      "difficulty": "hard",
+      "answerable": true,
+      "retrieved": [
+        "d07",
+        "d13",
+        "d04"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": false
+    },
+    {
+      "id": "h11",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d07",
+        "d08",
+        "d04"
+      ],
+      "abstained": false,
+      "citations": [
+        "d07"
+      ],
+      "answer": "The account level S3 public access block is codified in the governance module and protected with prevent_destroy.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h12",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d08",
+        "d02",
+        "d13"
+      ],
+      "abstained": false,
+      "citations": [
+        "d08"
+      ],
+      "answer": "The verification script confirms that the root user has MFA enabled, no access keys, CloudTrail is healthy, and GuardDuty is enabled.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.8461538461538461,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h13",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d09",
+        "d04",
+        "d02"
+      ],
+      "abstained": false,
+      "citations": [
+        "d09"
+      ],
+      "answer": "The orchestrator routes each request to a domain agent.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h14",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d09",
+        "d10",
+        "d11"
+      ],
+      "abstained": false,
+      "citations": [
+        "d09"
+      ],
+      "answer": "A decision engine assigns priority and risk to requests.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.8333333333333334,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h15",
+      "difficulty": "hard",
+      "answerable": true,
+      "retrieved": [
+        "d10",
+        "d09",
+        "d11"
+      ],
+      "abstained": false,
+      "citations": [
+        "d10"
+      ],
+      "answer": "The NEXUS cybersecurity agent cannot shut down a compromised host because it has no cloud credentials and no ability to execute actions, so any response automation would require human approval.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.7142857142857143,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h16",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d11",
+        "d09",
+        "d10"
+      ],
+      "abstained": false,
+      "citations": [
+        "d11"
+      ],
+      "answer": "NEXUS stores document chunks in Qdrant with embeddings from the nomic-embed-text model served by Oll. The search filters by user identifier and applies a minimum similarity score of 0.15 by default.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.9545454545454546,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h17",
+      "difficulty": "paraphrase",
+      "answerable": true,
+      "retrieved": [
+        "d11",
+        "d08",
+        "d10"
+      ],
+      "abstained": false,
+      "citations": [
+        "d11"
+      ],
+      "answer": "Search filters by user identifier",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h18",
+      "difficulty": "easy",
+      "answerable": true,
+      "retrieved": [
+        "d12",
+        "d13",
+        "d04"
+      ],
+      "abstained": false,
+      "citations": [
+        "d12"
+      ],
+      "answer": "The recovery tests cover partial failure and dead letter queue replay.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.8888888888888888,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h19",
+      "difficulty": "hard",
+      "answerable": true,
+      "retrieved": [
+        "d13",
+        "d01",
+        "d12"
+      ],
+      "abstained": false,
+      "citations": [
+        "d13"
+      ],
+      "answer": "The raw payload stays unchanged when keys are folded because the fix folds keys on a working copy while leaving the raw payload untouched.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.8235294117647058,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h20",
+      "difficulty": "multi_hop",
+      "answerable": true,
+      "retrieved": [
+        "d07",
+        "d12",
+        "d06"
+      ],
+      "abstained": false,
+      "citations": [
+        "d07"
+      ],
+      "answer": "Terraform S3 buckets must have a public access block, KMS encryption and versioning. KMS keys must have rotation enabled. The account level S3 public access block is codified in the governance module and protected with prevent_destroy.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 0.9197207891481876,
+      "correct": false,
+      "faithfulness": 1.0,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "h21",
+      "difficulty": "multi_hop",
+      "answerable": true,
+      "retrieved": [
+        "d10",
+        "d01",
+        "d09"
+      ],
+      "abstained": false,
+      "citations": [
+        "d10"
+      ],
+      "answer": "The NEX:US cybersecurity agent can summarize and explain AEGIS-X incidents through a read only integration. It cannot execute actions without human approval.",
+      "hit_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "rr": 1.0,
+      "ndcg_at_3": 1.0,
+      "correct": true,
+      "faithfulness": 0.8333333333333334,
+      "citation_precision": 1.0
+    },
+    {
+      "id": "hu01",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d04",
+        "d02",
+        "d12"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "hu02",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d03",
+        "d12",
+        "d01"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "hu03",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d02",
+        "d04",
+        "d07"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "hu04",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d09",
+        "d11",
+        "d10"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "hu05",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d13",
+        "d05",
+        "d01"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    },
+    {
+      "id": "hu06",
+      "difficulty": "unanswerable",
+      "answerable": false,
+      "retrieved": [
+        "d05",
+        "d04",
+        "d02"
+      ],
+      "abstained": true,
+      "citations": [],
+      "answer": "I don't have enough information to answer that."
+    }
+  ],
+  "timing_ms": {
+    "p50": 8356.796,
+    "max": 16530.679
+  }
+}

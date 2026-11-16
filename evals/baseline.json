@@ -1,0 +1,15 @@
+{
+  "answerer": "llm",
+  "metrics": {
+    "abstention.correct_rate": 1.0,
+    "abstention.false_rate": 0.08,
+    "answer.citation_precision": 1.0,
+    "answer.correct_rate": 0.92,
+    "answer.faithfulness": 0.9072,
+    "retrieval.hit_at_1": 0.92,
+    "retrieval.mrr": 0.9533,
+    "retrieval.ndcg_at_3": 0.962,
+    "retrieval.recall_at_3": 1.0
+  },
+  "system": "rerank"
+}
