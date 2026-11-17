@@ -33,7 +33,7 @@ re-derived. `requirements.txt`, `Dockerfile` and `render.yaml` are also unchange
 ## 1. Current architecture
 
 ```
-client -> security middleware (API key -> Principal, per-process rate limit, size cap, CORS, request id)
+client -> security middleware (API key -> Principal, per-process rate limits by address and by credential owner, size cap, CORS, request id)
        -> app/main.py (17 route handlers) + routers: /knowledge, /system/*, /health/*, /integrations/aegis-x/* (33 handlers in total)
 identity layer (app/security/identity.py): Principal = scoped user | operator | unauthenticated (dev/demo)
 orchestrator -> keyword router -> domain agent (enterprise | personal | cybersecurity) -> decision engine (heuristics)
@@ -64,20 +64,22 @@ wider authentication and authorization story is not finished. It is deliberately
 | Malformed credential returns 401, not 500 | VERIFIED COMPLETE | regression test for the non-ASCII header bug found during PR #4 review |
 | Isolation is opt-in | PARTIALLY IMPLEMENTED | per-user keys come from `NEXUS_API_KEYS`; a deployment that sets only the legacy `NEXUS_API_KEY` gets an **operator** principal with access to every user's data |
 | Authentication switched off (local development, public demo mode) | PARTIALLY IMPLEMENTED | no identity and no enforcement by design; must never hold real data |
+| System-level routes (AEGIS-X x6, `/system/*` x4, `/activity`, `/activity/summary`, `/dashboard/activity`, `/memory/status`, `/decision-engine/status`) require administrator credentials | VERIFIED COMPLETE for scoped keys | `require_admin` (`app/security/identity.py`), declared on the AEGIS-X and observability routers and on five handlers in `app/main.py`; `tests/test_authorization_roles.py` (55 test cases): 401 without a credential, 403 for a scoped key, 200 for the operator key, and a guard that fails when any route has no authorization decision; mutation-checked on a scratch copy (12 of 12 mutants caught). **Breaking change** for clients that used a scoped key on these routes |
+| API keys with expiry, revocation and rotation (opt-in key store, `NEXUS_KEYSTORE_ENABLED`) | VERIFIED COMPLETE for stored keys; environment keys unchanged | `app/security/keystore.py`: server-generated `nxk_` keys, SHA-256 digest only, mandatory expiry of 1 to 366 days, immediate revocation, overlap rotation that never lengthens the old key, role `user` by default; wired into the middleware after the environment keys, with a 503 fail-closed path; `tests/test_keystore.py` (58 test cases); mutation-checked on a scratch copy (27 of 27 mutants caught). Enabling the store turns authentication on (an environment key is still required), so it cannot be left off by the development default. Command-line management only; one SQL table; the environment keys remain plaintext and non-expiring |
+| Bearer tokens (JWT, HS256 only; **not OIDC**) | VERIFIED COMPLETE for HS256; OIDC NOT STARTED and BLOCKED | `app/security/jwt_auth.py`, wired into the middleware after the environment and stored keys (`Authorization: Bearer` only): fixed algorithm, signature under up to two secrets, `iss`, `aud`, required `exp` with a maximum lifetime, `nbf` and `iat`, and a valid `sub`; the principal is always a scoped user, so no claim grants administrator rights; a partial configuration stops startup; `tests/test_jwt_auth.py` (102 test cases, 60 distinct refused tokens plus a fuzz); mutation-checked on a scratch copy (34 of 34 mutants caught). OIDC (RS256/ES256, JWKS, OIDC discovery) needs `cryptography`, which is not installed, and a reachable identity provider, so it is not implemented. The shared secret is a master credential for every non-administrator user; tokens cannot be revoked before they expire; there is no `jti` replay tracking |
 
-Residual exposures that this change does **not** close (read from the code, not exploited):
-- The `/integrations/aegis-x/*` routes (6) have no identity dependency: any authenticated key, scoped or operator, reads the same organisation-wide findings.
-- `/activity`, `/activity/summary` and `/system/*` are global (the activity log holds agent names, durations and error text, not user content).
+Residual exposures that PR #4 did not close (read from the code, not exploited):
+- The `/integrations/aegis-x/*` routes (6) had no identity dependency, so any authenticated key, scoped or operator, read the same organisation-wide findings; `/activity`, `/activity/summary` and `/system/*` were global (the activity log holds agent names, durations and error text, not user content). **Closed for scoped keys by the administrator-only role gate added in the Phase 2 follow-up** (row "System-level routes" in the table above). The data stays deployment-wide: these routes are administrator-only, not per-user views.
 - Sessions and profiles created before PR #4 are reachable only with the operator key.
 
 **Tenant isolation is not complete authentication and authorization.** What is still outstanding:
 
 | Capability | Status |
 |---|---|
-| OIDC / JWT identity | NOT STARTED |
-| API-key rotation, expiry and revocation (keys are environment variables) | NOT STARTED |
-| Roles or permissions beyond "scoped user" and "operator" | NOT STARTED |
-| Rate limiting | PARTIALLY IMPLEMENTED: a sliding-window limiter exists, but it is per process and keyed by the client address (`request.client.host`), so it is neither shared across workers nor per identity, and clients behind a proxy share one key |
+| OIDC / JWT identity | PARTIALLY IMPLEMENTED: HS256 bearer tokens with a shared secret are verified (row above). OIDC (RS256/ES256, JWKS and OIDC discovery) is NOT STARTED and BLOCKED: it needs `cryptography` (not installed) and a reachable identity provider |
+| API-key rotation, expiry and revocation | PARTIALLY IMPLEMENTED: available for stored keys (opt-in key store); the environment keys are still plaintext, non-expiring and changed only by redeploying; there is no managed secret store or KMS, and management is by command line |
+| Roles or permissions beyond "scoped user" and "operator" | PARTIALLY IMPLEMENTED: two roles (`admin`, `user`) now gate the system-level routes; there are no finer permissions, per-route scopes or role claims from an identity provider |
+| Rate limiting | PARTIALLY IMPLEMENTED: a sliding-window limiter keyed by the client address runs before authentication, and a second one keyed by credential owner (each user; the administrator credentials together) runs after it, so one key used from many addresses shares one budget (`tests/test_rate_limit_identity.py`, 7 test cases; 8 of 8 mutants caught). Both are per process, so neither is shared across workers or instances (that needs a shared store such as Redis: BLOCKED, none available), and clients behind a proxy still share one per-address budget (trusted-proxy handling is not implemented) |
 
 ### 2.2 Evaluation, reproducibility and caches
 
@@ -102,7 +104,7 @@ Residual exposures that this change does **not** close (read from the code, not 
 | Upload checks in `POST /knowledge/ingest` (allowed extensions, 20 MB cap) | IMPLEMENTED BUT NOT VERIFIED | the code is in `app/api/knowledge.py`, but no test exercises the 415 or 413 rejection paths. The 413 test in `test_security_hardening.py` covers the separate request-size middleware, not this handler. (v1 grouped this under a verified row; that was too strong.) |
 | Hybrid retrieval, reranking in **production** | NOT STARTED | `NexusRAG.search` is dense-only. Lexical hybrid (RRF) and LLM reranking exist **only** in `evals/` as experiments |
 | Citations, citation validation, abstention in **production** | NOT STARTED | the cited, structured, refusing answerer lives only in `evals/` |
-| Guardrails (prompt-injection, PII, output validation) | PARTIALLY IMPLEMENTED | enforced: type, empty and length checks, context and profile size bounds, a schema check on the model's routing output; advisory only: prompt instructions and "untrusted" labels; missing: injection detection, delimiter neutralization, PII handling, output validation of free-text responses, adversarial tests (section 4.1) |
+| Guardrails (prompt-injection, PII, output validation) | PARTIALLY IMPLEMENTED | enforced: request-model limits on the message at the API boundary (1 to 5,000 characters, HTTP 422; tested), then, in later layers, type, empty and length checks in the orchestrator, context and profile size bounds, a schema check on the model's routing output; advisory only: prompt instructions and "untrusted" labels; missing: injection detection, delimiter neutralization, PII handling, output validation of free-text responses, adversarial tests (section 4.1) |
 | Agent planning, tool selection, MCP, human approval | NOT STARTED | single LLM calls behind a keyword router; only the 5 read-only AEGIS-X tools |
 | Provider abstraction (LLM, embeddings) | NOT STARTED | OpenAI SDK pointed at Ollama; embeddings call Ollama over `httpx` |
 | OpenTelemetry, token and cost tracking | NOT STARTED | access logs with request ids and an activity log only |
@@ -116,7 +118,7 @@ Residual exposures that this change does **not** close (read from the code, not 
 
 | Check | Result | How verified |
 |---|---|---|
-| Full offline suite on `main` | 188 passed, 1 skipped, 0 failed (189 collected) | run locally in this update with model inference blocked |
+| Full offline suite | 432 passed, 1 skipped, 0 failed (433 collected) | run locally with model inference blocked, on `main` @ `39acbec` plus the Phase 2 follow-up: `tests/test_api_input_validation.py` (22 test cases), the role gate and `tests/test_authorization_roles.py` (55), the key store and `tests/test_keystore.py` (58), the per-identity limiter and `tests/test_rate_limit_identity.py` (7), the token verifier and `tests/test_jwt_auth.py` (102); it was 188 passed, 1 skipped (189 collected) on `main` @ `39acbec` |
 | The skipped test | `test_against_a_real_qdrant_server` | needs `EVALS_QDRANT_URL` |
 | Evaluation gate and frozen configuration | pass | `python -m evals.run --check`, `python -m evals.freeze_nexus_config --check` |
 | CI on the PR #5 head (`f9234e1`) | Python 3.11 and 3.12: 188 passed, 1 skipped, "quality gate passed"; Docker build success | read from the CI run logs |
@@ -143,8 +145,8 @@ Evaluation limitations (every one applies to the numbers in `docs/RAG_ADAPTER_EV
 - **L4. The Qdrant integration was tested only with the in-process local client.** A real Qdrant server integration was not verified; the server test is skipped. Reported latency uses in-process Qdrant and an embedding time recorded at first computation, so it is not representative of a networked deployment.
 - **L5. Production `NexusRAG` remains dense-only.**
 - **L6. Hybrid retrieval and LLM reranking are experimental evaluation-harness features, not production capabilities.** Their rows in the reports fuse or rerank production dense results inside the harness.
-- **L7. Tenant isolation does not mean complete authentication and authorization** (section 2.1): isolation is opt-in, the operator key is unrestricted, and AEGIS-X and global endpoints are not scoped.
-- **L8. OIDC/JWT, key rotation and revocation, and shared or per-identity rate limiting remain outstanding.**
+- **L7. Tenant isolation does not mean complete authentication and authorization** (section 2.1): isolation is opt-in and the operator key is unrestricted. AEGIS-X, activity and system routes are administrator-only but return deployment-wide data, not per-user views.
+- **L8. OIDC and shared (cross-instance) rate limiting remain outstanding.** JWT exists only as HS256 with a shared secret. Rate limiting is per credential owner as well as per address, but only within one process. Key rotation, expiry and revocation exist only for stored keys (opt-in); the environment keys have none.
 - **L9. Eight exploratory cache workload combinations remain unreplayable, and cleanup refuses to prune.** They are: dev `dense` and `broken` with the LLM answerer; held-out `bm25`, `tfidf`, `hybrid`, `dense`, `hybrid_dense` and `broken` with the LLM answerer. No test and no recorded report uses them and most were never computed. `python -m evals.prune_cache` exits 1 and changes nothing until the workload is narrowed to what tests and reports use. This is a known cleanup limitation, not a data-integrity issue; it is not addressed here.
 - **L10. Whether embedding without `nomic-embed-text` task prefixes affects quality is unresolved:** dev and held-out comparisons point in opposite directions by one or two questions.
 
@@ -154,7 +156,7 @@ Other weaknesses carried from v1 and re-checked:
 - **S5 (Medium, unchanged):** dependencies are not reproducible (`openai` unpinned, `qdrant-client` ranged, `pytest` in the production requirements, no lockfile or Dependabot configuration).
 - **S6 (Low, unchanged):** `app/core/config.py` defines only `OPENAI_API_KEY`; configuration is read from scattered `os.getenv` calls.
 - **Q2 (unchanged):** `app/main.py` mixes routing and logic; routing and risk decisions are keyword matching.
-- **New, documentation:** `docs/UPGRADE_NOTES.md` (line 63) still carries the pre-PR-#4 "Identity limitation" paragraph, which now overstates the gap for scoped keys. It was not edited by this update (scope limit) and should be reconciled with the README section "Identity and tenant isolation".
+- **Documentation (resolved in PR #8):** `docs/UPGRADE_NOTES.md` carried the pre-PR-#4 "Identity limitation" paragraph, which overstated the gap for scoped keys. PR #8 replaced it with wording that matches the README section "Identity and tenant isolation" and section 2.1 of this audit; it still states that tenant isolation is not complete authentication and authorization.
 - **New, process:** two incidents are on record: a non-ASCII API-key header returned 500 instead of 401 (found in review of PR #4 and fixed before merge; the original comparison had the same bug), and a cache data-loss incident during PR #5 (section 5). Both are fixed and covered by regression tests.
 
 ### 4.1 S2 in detail: AI input handling and prompt-injection controls
@@ -165,14 +167,28 @@ agent-produced text into prompts; it is not evidence that an attack has succeede
 
 **A. Enforced controls** (the code rejects or bounds input whatever the model does)
 
+The message checks run in layers, and which layers a request meets depends on the endpoint. The **API boundary** is the request model: a bad `message` is rejected with HTTP 422 before any handler code runs. Everything else happens **later**, in the handler or the orchestrator.
+
+| Endpoint | API boundary (request model) | In the handler | Orchestrator guardrail (type, empty, length) |
+|---|---|---|---|
+| `POST /agents/{domain}` | `AgentRequest.message`, 1 to 5,000 characters, otherwise 422 | nothing further | `run_agent` at 5,000 (`app/core/orchestrator.py:72-73`); a rejection becomes HTTP 400 (`app/main.py:266-272`) |
+| `POST /team` | `AgentRequest.message`, otherwise 422 | nothing further | `run_team` at 5,000 (`app/core/orchestrator.py:177`), then the composed prompts for the second and third agents at 15,000 (`internal=True`, `:201`, `:217`); a rejection becomes HTTP 400 (`app/main.py:281-287`) |
+| `POST /auto` | `AgentRequest.message`, otherwise 422 | routing asks for a clarification when no domain keyword matches, when domains tie, and for a whitespace-only message; no agent runs (`app/core/router.py:39-45,81`, `app/main.py:296-305`) | `run_agent` at 5,000, reached only when routing does not ask for a clarification (`app/main.py:307-316`); a rejection becomes HTTP 400 |
+| `POST /chat` | `ChatRequest.message`, 1 to 5,000 characters, otherwise 422 | a whitespace-only message gets HTTP 400 (`app/main.py:333-334`) | **only when the intent is an agent task** (`app/main.py:409-415`): `run_agent` at 5,000, applied to the user message **plus the appended reference material**, not to the user's text alone (`app/main.py:379-390`). Not applied when the reply is a clarification or a conversational answer. A rejection comes back as HTTP 200 with `status: "failed"` |
+
+`min_length` counts characters, so a whitespace-only message passes the request model and the later layers decline it, as the table shows. Every agent also re-checks its own input (`app/agents/contracts.py`, below).
+
 | Control | Where | Test coverage |
 |---|---|---|
-| Type, empty and length check on the user message: 5,000 characters, 15,000 for internal agent-to-agent context | `app/security/guardrails.py:3-18`, used at `app/core/orchestrator.py:72-73` and `:177` | none: no test references `guardrails` or sends an empty or oversized message through it |
+| API-boundary request validation: `ChatRequest.message` and `AgentRequest.message` are `min_length=1`, `max_length=5000` (characters), so an empty or over-long message gets HTTP 422 before any handler code runs | `app/main.py:75-76,92-93` | covered: `tests/test_api_input_validation.py` (22 test cases): empty and over-5,000 messages on `/chat`, `/agents/{domain}`, `/team` and `/auto`; exactly 5,000 accepted; a rejected request reaches no agent, conversation-engine, retrieval, router or orchestrator call and makes no outbound HTTP request. Weakening either limit makes the tests fail (checked by mutation on a scratch copy) |
+| Orchestrator guardrail, a later layer: type, empty and length check on the message an agent receives, 5,000 characters (on `/chat`, the message plus appended reference material), 15,000 for internal agent-to-agent context; the table above shows which endpoints reach it | `app/security/guardrails.py:3-18`, used at `app/core/orchestrator.py:72-73` and `:177` | partial: the empty and whitespace-only rejection is tested through `/agents/{domain}` and `/team` (`tests/test_api_input_validation.py`). The length limits are not: the request model rejects an over-5,000 request first, no test calls `guardrails` directly, and none sends it an over-limit composed message (the 15,000 internal limit, or a `/chat` message plus reference material over 5,000) |
 | Agent message contract: text only, not empty, at most 15,000 characters | `app/agents/contracts.py:12-19`; called by `enterprise_agent.py:13`, `personal_agent.py:15`, `cybersecurity_agent.py:21` | partial: `test_agent_rejects_non_text_input` (`tests/test_nexus_upgrade.py:39`); the empty and length branches are untested |
 | Bounded context: retrieved snippets 6,000 characters, earlier-agent output 2,400, the original request inside team prompts 1,200 | `app/main.py:22`, `app/core/orchestrator.py:17-18,195,208` | `test_retrieved_knowledge_is_bounded_and_marked_as_reference_material` (`tests/test_batch1_public_demo_safety.py:81`) covers the retrieved-snippet bound only |
 | Profile data: only five fields reach a prompt, JSON-serialized and capped at 10,000 characters; stored profiles are validated for total size, list length, text length and control characters in identifiers | `app/agents/contracts.py:22-41`; `app/core/memory.py:45-47,70-112` | storage limits: `tests/test_nexus_upgrade.py:119,175`; the prompt-side field allowlist and cap are untested |
 | Empty model output is a failure, not a success | `app/agents/contracts.py:45-48` | `test_agent_empty_model_output_is_failure` (`tests/test_nexus_upgrade.py:33`) |
 | The model's routing output is schema-checked: a JSON object with required fields, `intent_type` from a four-value allowlist, `agent` from a three-value allowlist, per-intent consistency; anything else falls back to a clarification question | `app/core/conversation.py:164-222` | `test_malformed_response_uses_fallback` (`tests/test_conversation.py:78`) and the valid intents (`:18-63`); no hostile-input case |
+
+**Observed on `/chat`, not fixed here.** Because the guardrail measures the composed message, it can fail a valid request. With a 22-character message and 1,168 characters of retrieved text the agent was called. With 6,000 characters of retrieved text (the cap on that block, `app/main.py:22`), or with a 5,000-character message and 232 characters of retrieved text, the agent was not called and `/chat` returned `status: "failed"` with `response: "Message exceeds maximum length"`. The appended header adds 98 characters. Stored chunks are up to 1,000 words (`app/services/rag.py:161-175`), roughly 5,000 to 6,000 characters of ordinary English prose (an estimate, not measured on real documents), so retrieving one full-size chunk can be enough. The team workflow's composed prompts use the 15,000 internal limit; `/chat`'s composed message does not. This fails closed, so it is a functional defect and not a security weakness. It was observed by calling the handler with stubbed intent, retrieval and agents (no model); no committed test covers it and no code was changed.
 
 **B. Advisory prompt-level controls** (instructions to the model; not an enforceable security boundary)
 - System prompts tell the agents to treat retrieved, quoted or attached content as untrusted data: `app/agents/enterprise_agent.py:23`, `cybersecurity_agent.py:34`, `personal_agent.py:30-31`, `app/core/conversation.py:37-38`.
@@ -195,11 +211,13 @@ agent-produced text into prompts; it is not evidence that an attack has succeede
 5. Precondition for indirect injection: hostile text has to reach a prompt, through a document in the user's own knowledge base (retrieval is filtered by user, so another user's documents are not retrieved) or through an earlier agent's output. A search of `app/agents`, `app/core` and `app/main.py` found no code path that places AEGIS-X finding text into a model prompt; that is a search result, not a proof of absence.
 
 **E. Missing adversarial tests**
-The tests that touch these controls check only limited things: `tests/test_nexus_upgrade.py:78-79` asserts that the string `untrusted_agent_output` appears in the downstream agent's message, and `tests/test_batch1_public_demo_safety.py:81-87` asserts the snippet bound and that the source name appears. Neither establishes resistance to a hostile document or a delimiter breakout. There are no tests with hostile documents, instruction-like content, a closing-tag payload, a hostile `source` value, PII, or empty and oversized messages through the guardrail, and no prompt-injection or red-team regression suite. `tests/test_security_hardening.py` covers the HTTP middleware (keys, rate limit, headers, request size), not prompt handling.
+The tests that touch these controls check only limited things: `tests/test_nexus_upgrade.py:78-79` asserts that the string `untrusted_agent_output` appears in the downstream agent's message, and `tests/test_batch1_public_demo_safety.py:81-87` asserts the snippet bound and that the source name appears. Neither establishes resistance to a hostile document or a delimiter breakout. There are no tests with hostile documents, instruction-like content, a closing-tag payload, a hostile `source` value or PII, and no prompt-injection or red-team regression suite. Empty and oversized messages are tested only at the API boundary (`tests/test_api_input_validation.py`, section A); the orchestrator guardrail's own length limits remain untested. `tests/test_security_hardening.py` covers the HTTP middleware (keys, rate limit, headers, request size), not prompt handling.
 
 **Remaining AI security risks:** a hostile document or agent output can try to steer a model and nothing enforces otherwise; delimiters can be closed from inside; no PII handling; free-text output is unfiltered; no adversarial tests to detect regressions. Addressing these is the scope of Phase 3 and is not started.
 
 How 4.1 was verified (read-only): `grep` over `app/` and `tests/` for the controls and their tests, direct calls of `NexusOrchestrator._untrusted_context` and `format_knowledge_context` with hostile inputs, reading `conversation.py`, `contracts.py`, `rag.py` and `knowledge.py`.
+
+The layer table and the API-boundary rows of section A were added later, on top of `main` @ `39acbec`. They were read from `app/main.py`, `app/core/orchestrator.py` and `app/core/router.py` and are checked by `tests/test_api_input_validation.py`, which was also mutation-checked on a scratch copy: weakening either request limit, the `/chat` whitespace check, the guardrail's empty check or the `/auto` clarification branch makes it fail. One mutant survives because it is equivalent: removing the router's own empty-message check changes nothing observable, since a whitespace-only message matches no keyword and reaches the same clarification. The `/chat` observation came from calling the handler with stubbed intent, retrieval and agents; no live model or Qdrant server was involved.
 
 ## 5. Review history
 
@@ -211,9 +229,9 @@ How 4.1 was verified (read-only): `grep` over `app/` and `tests/` for the contro
 
 1. **Narrow the cleanup workload** to the combinations tests and reports use, then run `evals.prune_cache` (closes L9). Small and independent.
 2. **Pin dependencies; add lint, type, dependency-audit and secret scanning to CI** (S5, Q1; unblocks `pip-audit`). Triage the 13 mypy errors first.
-3. **Reconcile `docs/UPGRADE_NOTES.md`** with the PR #4 behaviour.
+3. **Keep `docs/UPGRADE_NOTES.md` aligned with the identity model.** Its identity paragraph was reconciled with the PR #4 behaviour in PR #8; re-check it whenever the identity model changes.
 4. **Run the Qdrant server test** (needs Docker running and a Qdrant container) to turn the "IMPLEMENTED BUT NOT VERIFIED" row into a verified one or a documented failure.
-5. **Complete authentication and authorization:** scope or restrict the AEGIS-X and global routes; OIDC/JWT; key rotation and revocation; identity-aware and shared rate limiting.
+5. **Complete authentication and authorization:** done in the Phase 2 follow-up: the AEGIS-X and global routes are administrator-only, stored keys can expire, be revoked and be rotated, rate limits are per credential owner as well as per address, and HS256 bearer tokens are verified. Remaining: OIDC, which needs `cryptography` and an identity provider; a shared rate-limit store.
 6. **Phase 3, AI security hardening** (S2): prompt-injection and indirect-injection tests, PII handling, output validation, red-team suite, tool permission boundaries. Not started by this update.
 7. Production RAG improvements (hybrid, reranking, cited answers with abstention), then orchestration and approval gates, observability, multimodal, deployment hardening. Use the evaluation harness to decide which retrieval changes actually help, noting L1 to L3.
 

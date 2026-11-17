@@ -2,13 +2,15 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.core.llm import get_ollama_health
 from app.core.memory import memory
+from app.security.identity import require_admin
 from app.services.rag import rag
 
-router = APIRouter(tags=["Observability"])
+# System status describes the deployment, not a user's data: administrator credentials only.
+router = APIRouter(tags=["Observability"], dependencies=[Depends(require_admin)])
 
 
 @router.get("/system/llm-health")

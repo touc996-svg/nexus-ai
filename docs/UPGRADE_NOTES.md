@@ -56,6 +56,10 @@ judgments, or ground-truth accuracy measurements.
 
 The public demo now blocks `/activity/summary` as well as the other activity
 history paths. The in-process sliding-window limiter bounds its client-key map.
+Authenticated requests also spend a per-credential-owner budget
+(`NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE`, default: the per-address limit), so
+one key used from many addresses shares one budget; like the per-address limit it
+is per process, not shared across workers.
 Chat logging no longer prints user IDs or RAG scores. The existing API-key
 middleware, request-size check for declared `Content-Length`, response headers,
 and explicit-origin CORS policy remain in place.
@@ -71,10 +75,46 @@ Sessions and profiles created before this change are reachable only with the
 operator key. When authentication is switched off (local development, public
 demo) there is no identity and no enforcement.
 
-This is tenant isolation, not complete authentication and authorization. Keys are
-environment variables (no rotation, expiry or revocation), OIDC/JWT identity is
-not implemented, there are no roles beyond scoped user and operator, the
-AEGIS-X, activity and system endpoints are not scoped to a user, and rate
+**Breaking change (administrator-only system routes):** `/integrations/aegis-x/*`,
+`/system/*`, `/activity`, `/activity/summary`, `/dashboard/activity`,
+`/memory/status` and `/decision-engine/status` now require the operator key
+(`NEXUS_API_KEY`). A per-user key (`NEXUS_API_KEYS`) receives 403 on them where it
+previously succeeded; a request with no valid key still receives 401. A deployment
+that sets only `NEXUS_API_KEYS` (no operator key) can no longer reach these routes
+at all: set `NEXUS_API_KEY` to keep an administrator credential. With
+authentication off (local development, public demo) nothing changes.
+
+**Stored keys (opt-in, no effect unless enabled):** set `NEXUS_KEYSTORE_ENABLED=true`
+to also accept keys issued with `python -m app.security.keystore`. They are generated
+by the server, shown once, stored only as a SHA-256 digest, always expire (default
+90 days, at most 366), can be revoked (effective on the next request) and rotated
+(a replacement plus a short overlap for the old key, never longer than it already
+had). Enabling it creates an `api_keys` table in the application database. The
+environment keys keep working and stay the bootstrap and break-glass credentials;
+at least one is still required, because enabling the store turns authentication on
+(with no environment key the application refuses to start). If the store cannot be
+read, a stored key gets 503, never access. Keys are managed only from the command
+line, which prints the database it changed (password hidden): run it with the same
+`DATABASE_URL` as the server.
+
+**Bearer tokens (opt-in, HS256 only, not OIDC):** set `NEXUS_JWT_SECRETS`,
+`NEXUS_JWT_ISSUER` and `NEXUS_JWT_AUDIENCE` to also accept
+`Authorization: Bearer <token>` signed with a shared secret by a trusted issuer.
+Only HS256 is accepted; `iss`, `aud`, `exp` (required, at most
+`NEXUS_JWT_MAX_LIFETIME_SECONDS` away) and a valid `sub` are checked, and `nbf` and
+`iat` may not be in the future. The user is the verified `sub`; no claim can make a
+token an administrator. A partial configuration stops the application at startup,
+and enabling tokens turns authentication on (an environment key is still
+required). Tokens cannot be revoked before they expire, and there is no replay
+tracking. RS256/ES256, JWKS and OIDC discovery are not implemented: they need
+`cryptography` and a network path to an identity provider.
+
+This is tenant isolation, not complete authentication and authorization. The
+environment keys have no rotation, expiry or revocation (stored keys do, when
+enabled), OIDC identity is not implemented (HS256 bearer tokens are, when
+configured), there are only two roles (administrator, which is the operator
+key, and scoped user), the AEGIS-X, activity and system endpoints are
+administrator-only but return deployment-wide data rather than per-user views, and rate
 limiting is per-process and per-client-address. Do not expose persistent-memory,
 profile or RAG features as a multi-tenant production service on this basis alone.
 See the "Identity and tenant isolation" section of `README.md` and section 2.1
