@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
+from qdrant_client.http.exceptions import ResponseHandlingException
 
 from app.security.identity import SYSTEM_USER, Principal, get_principal, resolve_user_id
 from app.services.rag import rag
@@ -33,6 +34,21 @@ class KnowledgeSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=5000)
     user_id: str | None = Field(default=None, min_length=1, max_length=128)
     limit: int = Field(default=5, ge=1, le=50)
+
+
+def _knowledge_failure(action: str, exc: Exception) -> HTTPException:
+    """503 when the vector store cannot be reached (the client can retry), 500 for anything else.
+
+    qdrant-client raises ResponseHandlingException for connection failures and timeouts. Only the exception
+    class name is reported, never its text, which can carry the store's address.
+    """
+    if isinstance(exc, ResponseHandlingException):
+        return HTTPException(
+            status_code=503,
+            detail="Knowledge store is unavailable. Retry shortly.",
+            headers={"Retry-After": "5"},
+        )
+    return HTTPException(status_code=500, detail=f"{action} failed: {type(exc).__name__}")
 
 
 @router.post("/ingest")
@@ -77,10 +93,7 @@ async def ingest_document(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Document ingestion failed: {type(exc).__name__}"
-        ) from exc
+        raise _knowledge_failure("Document ingestion", exc) from exc
         await file.close()
 
 
@@ -90,10 +103,7 @@ def list_knowledge_sources(user_id: str | None = None, principal: Principal = De
     try:
         return {"user_id": user_id, "sources": rag.list_sources(user_id=user_id)}
     except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Knowledge source listing failed: {type(exc).__name__}"
-        ) from exc
+        raise _knowledge_failure("Knowledge source listing", exc) from exc
 
 
 @router.delete("/sources/{source_id}")
@@ -111,10 +121,7 @@ def delete_knowledge_source(
             "status": "deleted" if deleted else "not_found_or_disabled"
         }
     except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Knowledge source deletion failed: {type(exc).__name__}"
-        ) from exc
+        raise _knowledge_failure("Knowledge source deletion", exc) from exc
 
 
 @router.post("/search")
@@ -132,7 +139,4 @@ def search_knowledge(request: KnowledgeSearchRequest, principal: Principal = Dep
             "results": results
         }
     except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Knowledge search failed: {type(exc).__name__}"
-        ) from exc
+        raise _knowledge_failure("Knowledge search", exc) from exc
