@@ -30,7 +30,9 @@ integration is strictly **read-only**.
   boto3/botocore/azure/google/requests/httpx/urllib/socket/subprocess, make no write/exec calls,
   open files read-only, expose only the allowlisted tools, and register no PUT/PATCH/DELETE routes.
 
-Existing NEXUS API-key auth and rate limiting apply to these routes. Findings may contain
+Existing NEXUS API-key auth and rate limiting apply to these routes, and they require
+administrator credentials: the operator key (`NEXUS_API_KEY`). A per-user key (`NEXUS_API_KEYS`)
+gets 403, because findings are deployment-wide data rather than per-user data. Findings may contain
 sensitive resource names: run NEXUS with the API key enabled and keep the data directory private.
 
 ## Not implemented: requirements before any response execution

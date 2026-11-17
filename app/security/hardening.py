@@ -18,10 +18,12 @@ from dataclasses import dataclass
 from typing import Deque
 
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
 from app.security.identity import OPERATOR, SYSTEM_USER, Principal
+from app.security.jwt_auth import JwtSettings, JwtVerifier, load_jwt_settings
 
 logger = logging.getLogger("nexus.security")
 PUBLIC_PATHS = {"/", "/health/live", "/health/ready"}
@@ -44,6 +46,9 @@ class SecuritySettings:
     cors_origins: tuple[str, ...]
     rate_limit_per_minute: int
     max_request_bytes: int
+    keystore_enabled: bool = False
+    identity_rate_limit_per_minute: int = 120
+    jwt: JwtSettings | None = None
 
 
 MIN_USER_KEY_LENGTH = 24
@@ -102,7 +107,11 @@ def load_security_settings() -> SecuritySettings:
         os.getenv("NEXUS_REQUIRE_API_KEY"), default_required
     )
     user_keys = parse_user_keys(os.getenv("NEXUS_API_KEYS", ""), api_key)
-    if (api_key or user_keys) and not demo_mode:
+    keystore_enabled = _as_bool(os.getenv("NEXUS_KEYSTORE_ENABLED"), False)
+    jwt_settings = load_jwt_settings()  # None unless NEXUS_JWT_SECRETS is set; a partial configuration raises
+    # Turning the key store or token verification on means the operator wants authentication: it must not be left
+    # off by the development default. An environment key is still required (the break-glass credential), below.
+    if (api_key or user_keys or keystore_enabled or jwt_settings is not None) and not demo_mode:
         require_api_key = True
     if require_api_key and not api_key and not user_keys and not demo_mode:
         raise RuntimeError(
@@ -117,9 +126,12 @@ def load_security_settings() -> SecuritySettings:
         if origin.strip()
     )
     rate_limit = int(os.getenv("NEXUS_RATE_LIMIT_PER_MINUTE", "120"))
+    identity_rate_limit = int(os.getenv("NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE", str(rate_limit)))
     max_request_bytes = int(os.getenv("NEXUS_MAX_REQUEST_BYTES", str(25 * 1024 * 1024)))
     if rate_limit < 1:
         raise ValueError("NEXUS_RATE_LIMIT_PER_MINUTE must be at least 1")
+    if identity_rate_limit < 1:
+        raise ValueError("NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE must be at least 1")
     if max_request_bytes < 1024:
         raise ValueError("NEXUS_MAX_REQUEST_BYTES must be at least 1024")
 
@@ -132,6 +144,9 @@ def load_security_settings() -> SecuritySettings:
         cors_origins=origins,
         rate_limit_per_minute=rate_limit,
         max_request_bytes=max_request_bytes,
+        keystore_enabled=keystore_enabled,
+        identity_rate_limit_per_minute=identity_rate_limit,
+        jwt=jwt_settings,
     )
 
 
@@ -174,11 +189,30 @@ class SlidingWindowRateLimiter:
             return True, 0, max(0, self.limit - len(events))
 
 
-def install_security(app) -> None:
-    """Install authentication, request limits, response headers and CORS."""
+def _identity_bucket(principal: Principal) -> str:
+    """One budget per user; every administrator credential shares one (the operator is not a tenant)."""
+    return f"user:{principal.user_id}" if principal.scoped else "admin"
+
+
+def install_security(app, key_store=None, jwt_verifier=None) -> None:
+    """Install authentication, request limits, response headers and CORS.
+
+    ``key_store`` is a persistent key store (app/security/keystore.py). One is created when
+    ``NEXUS_KEYSTORE_ENABLED`` is true; an explicitly supplied store is always honoured. It is consulted only after
+    the environment keys, and only for ``nxk_`` keys. ``jwt_verifier`` (app/security/jwt_auth.py) is built from
+    ``NEXUS_JWT_*`` when those are set; it is consulted last, and only for ``Authorization: Bearer`` tokens.
+    """
     settings = load_security_settings()
     limiter = SlidingWindowRateLimiter(settings.rate_limit_per_minute)
+    identity_limiter = SlidingWindowRateLimiter(settings.identity_rate_limit_per_minute)
     app.state.security_settings = settings
+    if key_store is None and settings.keystore_enabled:
+        # imported on demand: constructing the store opens the application database
+        from app.security.keystore import KeyStore
+
+        key_store = KeyStore()
+    if jwt_verifier is None and settings.jwt is not None:
+        jwt_verifier = JwtVerifier(settings.jwt)
 
     @app.middleware("http")
     async def nexus_security_middleware(request: Request, call_next):
@@ -238,6 +272,18 @@ def install_security(app) -> None:
             bearer = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
             supplied_key = bearer or request.headers.get("x-api-key", "").strip()
             principal = authenticate(supplied_key, settings) if supplied_key else None
+            if principal is None and supplied_key and key_store is not None:
+                try:
+                    principal = await run_in_threadpool(key_store.authenticate, supplied_key)
+                except Exception as exc:  # noqa: BLE001 - fail closed: no store failure may authenticate a request
+                    logger.error("keystore_unavailable request_id=%s error_type=%s", request_id, type(exc).__name__)
+                    return secure_headers(JSONResponse(
+                        status_code=503,
+                        content={"detail": "Authentication is temporarily unavailable."},
+                        headers={"Retry-After": "5"},
+                    ))
+            if principal is None and jwt_verifier is not None and bearer:
+                principal = jwt_verifier.verify(bearer)
             if principal is None:
                 return secure_headers(JSONResponse(
                     status_code=401,
@@ -245,6 +291,16 @@ def install_security(app) -> None:
                     headers={"WWW-Authenticate": "Bearer"},
                 ))
             request.state.principal = principal
+            # The per-address limiter above runs before authentication, to protect it. This one is per credential
+            # owner: a key used from many addresses shares one budget. It does not separate users who sit behind one
+            # proxy (they still share the per-address budget); that needs trusted-proxy handling, not implemented.
+            identity_allowed, identity_retry_after, _ = identity_limiter.check(_identity_bucket(principal))
+            if not identity_allowed:
+                return secure_headers(JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded for this credential. Retry shortly."},
+                    headers={"Retry-After": str(identity_retry_after)},
+                ))
 
         try:
             response = await call_next(request)

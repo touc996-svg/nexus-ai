@@ -9,7 +9,7 @@ NEXUS AI is a modular AI platform designed to bring enterprise assistance, perso
 
 ## Project Overview
 
-NEXUS AI uses specialized agents coordinated by a central orchestrator. It combines automated routing, rule-based decision support, security guardrails, and persistent SQLite memory.
+NEXUS AI uses specialized agents coordinated by a central orchestrator. It combines automated routing, rule-based decision support, input-validation guardrails (enforced type, length and size limits), and persistent SQLite memory.
 
 The goal is to build a scalable foundation for intelligent automation and enterprise AI workflows.
 
@@ -47,6 +47,16 @@ The goal is to build a scalable foundation for intelligent automation and enterp
                      |
               SQLite Memory
 ```
+
+The "Security Guardrails" box is schematic. What the code enforces is input and schema validation: request-model limits
+on the message (1 to 5,000 characters; an empty or longer message is rejected with HTTP 422 before any handler runs),
+message type, empty and length checks, context and profile size bounds, and a schema check on the model's routing output
+(`app/main.py`, `app/security/guardrails.py`, `app/core/orchestrator.py`, `app/agents/contracts.py`, `app/core/conversation.py`).
+The request-model limits apply at the API boundary; the other message checks run later: the orchestrator's before an agent is called (on `/chat`,
+only when the intent is an agent task) and each agent's on its own input; the routing check runs on the model's reply. Instructions that tell a model to treat retrieved or quoted
+content as untrusted are advisory: they do not guarantee protection against prompt injection, and there is no
+injection detection, delimiter neutralization or PII handling. Details and test coverage are in
+`docs/ENGINEERING_AUDIT.md`, section 4.1.
 
 ## Technology Stack
 
@@ -143,7 +153,7 @@ NEXUS AI is being developed with an emphasis on:
 
 The current implementation includes the FastAPI application, three specialized agents, orchestration, rule-based decision support, SQLite persistent memory, and automated tests.
 
-The project is under active development. Authentication and user-level authorization remain required before exposing live/local-AI mode to an untrusted network. The public demo is stateless and disables memory/profile CRUD; knowledge ingestion and retrieval remain disabled there.
+The project is under active development. Opt-in per-user API keys provide tenant isolation (see "Identity and tenant isolation" below), but complete authentication and authorization (OIDC/JWT, key rotation and revocation, and the other outstanding controls) remain required before exposing live/local-AI mode to an untrusted network. The public demo is stateless and disables memory/profile CRUD; knowledge ingestion and retrieval remain disabled there.
 
 ## Disclaimer
 
@@ -193,7 +203,7 @@ The benchmark reports response availability, expected-signal coverage, pass rate
 
 ## Production Security and Deployment
 
-Batch 3 adds API-key authentication, request-size limits, process-local sliding-window rate limiting, explicit CORS origins, security response headers, request IDs, dependency-aware readiness checks, and a non-root Docker runtime.
+Batch 3 adds API-key authentication, request-size limits, process-local sliding-window rate limiting, explicit CORS origins, security response headers, request IDs, dependency-aware readiness checks, and a non-root Docker runtime. `docs/RELEASE_READINESS.md` lists what has been verified, what has not, and what is blocked, and is the page to read before calling a deployment ready.
 
 ### API authentication
 
@@ -205,7 +215,7 @@ Batch 3 adds API-key authentication, request-size limits, process-local sliding-
 
 ### Runtime controls
 
-Configure `NEXUS_RATE_LIMIT_PER_MINUTE`, `NEXUS_MAX_REQUEST_BYTES` (for requests with a declared `Content-Length`), and `NEXUS_CORS_ORIGINS` through environment variables. CORS is disabled for cross-origin browser traffic unless exact trusted origins are configured. The rate limiter is in-memory and per process; for multiple workers or replicas, enforce shared limits at an API gateway or reverse proxy. NEXUS does not trust client-supplied `X-Forwarded-For` for rate-limit identity.
+Configure `NEXUS_RATE_LIMIT_PER_MINUTE`, `NEXUS_MAX_REQUEST_BYTES` (for requests with a declared `Content-Length`), and `NEXUS_CORS_ORIGINS` through environment variables. CORS is disabled for cross-origin browser traffic unless exact trusted origins are configured. The rate limiter is in-memory and per process; for multiple workers or replicas, enforce shared limits at an API gateway or reverse proxy. NEXUS does not trust client-supplied `X-Forwarded-For` for rate-limit identity. Authenticated requests also spend a per-credential-owner budget (`NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE`, default: the per-address limit), so one key used from many addresses shares one budget and each user, and the administrator credentials together, have their own; that budget is in memory and per process too. Users behind one proxy still share the per-address budget.
 
 ### Health checks and containers
 
@@ -221,8 +231,10 @@ the existing project architecture:
 
 1. **Agents:** consistent response contracts, bounded profile context, and
    explicit failure for empty model output.
-2. **Orchestration:** bounded sequential context transfer, explicit untrusted
-   agent-output boundaries, resilient activity logging, and per-agent metrics.
+2. **Orchestration:** bounded sequential context transfer, untrusted-output
+   delimiter tags with an instruction not to follow their contents (advisory
+   labels, not an enforced boundary), resilient activity logging, and per-agent
+   metrics.
 3. **Decision engine:** source-attributed indicators, negative-signal handling,
    review escalation, and documented heuristic limits.
 4. **Memory:** identifier and profile validation, JSON safety, bounded profile
@@ -251,6 +263,39 @@ Two kinds of credential are supported (both sent as `Authorization: Bearer <key>
 - **Operator key** (`NEXUS_API_KEY`, unchanged). This is an administrator credential with access to every user's
   data, as before. Existing single-key deployments keep working but do not gain isolation; hand per-user keys to
   end users and keep the operator key private.
+- **Roles.** The operator key (and authentication-off mode) is the `admin` role; a per-user key is the `user` role.
+  System-level routes require `admin`: `/integrations/aegis-x/*`, `/system/*`, `/activity`, `/activity/summary`,
+  `/dashboard/activity`, `/memory/status` and `/decision-engine/status`. A per-user key gets 403 there (no credential
+  at all gets 401). **This is a breaking change** for any client that called those routes with a per-user key: use the
+  operator key from an operator context. These routes return deployment-wide data; they are not per-user views.
+- **Stored keys with expiry and revocation (opt-in).** With `NEXUS_KEYSTORE_ENABLED=true`, keys issued by
+  `python -m app.security.keystore` are accepted as well. They are generated by the server (`nxk_` prefix), shown once and
+  kept only as a SHA-256 digest. Every one expires (default 90 days, at most 366). Revocation applies to the next request.
+  Rotation issues a replacement and lets the old key live for a short overlap (default 7 days) without ever lengthening
+  it. A key is `user` (bound to one user id) unless `--role admin` is asked for. The environment keys keep working beside
+  them and remain the bootstrap and break-glass credentials: they are unchanged (plaintext, no expiry). If the store
+  cannot be read, a stored key is refused with 503, never accepted. Enabling the store turns authentication on, so an
+  environment key is still required. There is no HTTP endpoint that issues keys. The command prints which database it
+  changed (password hidden): run it with the server's `DATABASE_URL`.
+
+```bash
+python -m app.security.keystore issue --user alice --ttl-days 30 --label "alice laptop"   # prints the key once
+python -m app.security.keystore list                                                      # metadata only, never keys
+python -m app.security.keystore rotate k_1a2b3c4d5e6f --overlap-days 7
+python -m app.security.keystore revoke k_1a2b3c4d5e6f
+```
+
+- **Bearer tokens (JWT, HS256 only; this is not OIDC).** With `NEXUS_JWT_SECRETS` (one secret of at least 32 bytes, or two
+  while rotating), `NEXUS_JWT_ISSUER` and `NEXUS_JWT_AUDIENCE` set, `Authorization: Bearer <token>` also accepts a token signed
+  with that secret by an issuer you trust, such as a gateway or an internal token service. The token must be HS256 (no
+  `none`, no other algorithm), carry a matching `iss` and `aud`, an `exp` (required, no further away than
+  `NEXUS_JWT_MAX_LIFETIME_SECONDS`, default 24 h) and a `sub` that is a valid user id; `nbf` and `iat` may not be in the
+  future (leeway `NEXUS_JWT_LEEWAY_SECONDS`, default 30 s). The user is the verified `sub`, and **no claim can make a token an
+  administrator**. A misconfiguration (a secret without an issuer and audience, a short or duplicated secret) stops the
+  application at startup, and enabling tokens turns authentication on (an environment key is still required). Limits: the shared
+  secret is a master credential for every non-administrator user; a token cannot be revoked before it expires (keep them short);
+  there is no `jti` replay tracking; and asymmetric signatures (RS256, ES256), JWKS and OIDC discovery are not implemented,
+  because they need `cryptography` and a network path to an identity provider.
 
 `tests/test_tenant_isolation.py` has 20 tests. Eight exercise cross-user isolation through the real routes and
 middleware (memory, profile, knowledge and chat); two check the boundary controls (a user may name themselves, the
@@ -259,17 +304,40 @@ and non-ASCII credentials); and eight are unit tests of key-configuration valida
 The isolation tests were mutation-checked by hand (not automated in CI): removing the session namespace, trusting the
 client's `user_id`, or failing open each makes tests fail.
 If authentication is required and no identity is present, the request is refused.
+`tests/test_authorization_roles.py` (55 test cases) covers the role gate through the real routes and middleware: every
+system-level route returns 401 without a credential, 403 for a per-user key and 200 for the operator key; a role cannot
+be claimed through headers or body fields; authorization is decided before the request body is validated; the gate fails
+closed when no middleware authenticated the request; and a guard test fails when any route lacks an explicit
+authorization decision. Twelve mutants (removing the gate from each router and handler, disabling the check, treating
+per-user keys as admin, adding an unclassified route) were all caught on a scratch copy; that check is not automated in CI.
+`tests/test_keystore.py` (58 test cases) covers the key store with a fake clock and an in-memory database: only a digest
+is stored; expiry (including the exact boundary), immediate revocation, rotation overlap and the rule that rotation never
+lengthens a key; role handling (default `user`, an unknown role grants nothing); user-id rules identical to the
+environment keys; the command line (a key is printed once, a store that will not open is reported without details);
+stored keys through the real middleware and routes, including the same cross-user and administrator-only rules as
+environment keys; the 503 fail-closed path; and that enabling the store turns authentication on. Twenty-seven mutants of
+the store, the middleware and the command line were all caught on a scratch copy (not automated in CI).
+`tests/test_jwt_auth.py` (102 test cases) forges tokens by hand: 60 distinct ways a token can be wrong (`alg` none, a
+different algorithm, a lower-case or missing `alg`, key-pointing headers, a wrong or truncated signature, a payload or
+header replaced after signing, wrong or missing issuer, audience, expiry, `nbf`, `iat` and subject, exp beyond the maximum
+lifetime, non-numeric and boolean times, duplicate keys, NaN, malformed or oversized tokens) are all refused, and a
+fuzz of random strings never raises; no claim (`role`, `admin`, `scope`, ...) makes a token an administrator; the
+configuration fails at startup when partial; and token identities obey the same cross-user and administrator-only
+rules as keys through the real routes. Thirty-four mutants were all caught on a scratch copy (not automated in CI).
 
 Known limits, stated plainly:
 
-- Keys live in environment variables: no rotation, expiry, revocation list or key hashing. OIDC/JWT is the
-  production answer and is not implemented.
+- The environment keys (`NEXUS_API_KEY`, `NEXUS_API_KEYS`) are plaintext, never expire and change only by redeploying.
+  Stored keys fix that for the keys issued through the key store, but the store is one SQL table with command-line
+  management, not a managed secret service. OIDC is the production answer and is not implemented; the HS256 bearer tokens
+  above are a smaller thing, for a trusted issuer that shares a secret.
 - Sessions and profiles created before this change are reachable only with the operator key (a scoped user's
   sessions are stored under a new namespace). Migrating old data is manual.
 - With authentication switched off (local development, public demo mode) there is no identity and no
   enforcement. Never put real data behind that mode.
-- The rate limiter is still per-process and keyed by client address, and the activity log is global (it holds
-  agent names, durations and error text, not user content).
+- Rate limits are per process, not shared across workers or instances (a per-address limit before authentication
+  and a per-credential-owner limit after it), and the activity log is global (it holds agent names, durations and
+  error text, not user content).
 
 ---
 
