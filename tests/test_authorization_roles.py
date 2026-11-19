@@ -41,6 +41,7 @@ ADMIN = {  # operator credentials only
     ("GET", "/decision-engine/status"),
     ("GET", "/memory/status"),
     ("GET", "/integrations/aegis-x/status"),
+    ("GET", "/integrations/aegis-x/incidents"),
     ("POST", "/integrations/aegis-x/findings/query"),
     ("POST", "/integrations/aegis-x/incidents/summary"),
     ("POST", "/integrations/aegis-x/evidence/correlate"),
@@ -150,7 +151,7 @@ def test_aegis_x_exposes_only_read_verbs():
     # Checked through the OpenAPI schema: on the pinned FastAPI the routes sit inside included-router objects
     # that a loop over app.routes does not see.
     aegis = {(method, path) for method, path in _served_operations() if path.startswith("/integrations/aegis-x")}
-    assert len(aegis) == 6
+    assert len(aegis) == 7  # six original routes + read-only GET /incidents list
     assert {method for method, _ in aegis} <= {"GET", "POST"}
 
 

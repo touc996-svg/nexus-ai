@@ -197,3 +197,14 @@ def test_endpoint_unconfigured(monkeypatch):
     monkeypatch.delenv(ENV_VAR, raising=False)
     r = TestClient(app).post("/integrations/aegis-x/findings/query", json={})
     assert r.status_code == 200 and r.json()["status"] == "unavailable"
+
+
+def test_incident_list_and_data_label(client, monkeypatch):
+    r = client.get("/integrations/aegis-x/incidents").json()
+    assert r["total"] == 1 and r["incidents"][0]["incident_id"] == "inc-0123456789abcdef"
+    assert r["incidents"][0]["score_total"] == 62 and r["incidents"][0]["member_count"] == 3
+    assert client.get("/integrations/aegis-x/status").json()["data_label"] == "undeclared"
+    monkeypatch.setenv("NEXUS_AEGIS_X_DATA_LABEL", "demo")
+    assert client.get("/integrations/aegis-x/status").json()["data_label"] == "demo"
+    monkeypatch.setenv("NEXUS_AEGIS_X_DATA_LABEL", "bogus")
+    assert client.get("/integrations/aegis-x/status").json()["data_label"] == "undeclared"

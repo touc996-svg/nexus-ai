@@ -58,3 +58,12 @@ and must not be added without all of the following:
    captured before change and a dry-run mode.
 
 Until these exist, `recommend_actions` returns advisory text and `executes_actions: false`.
+
+## Dashboard (read-only SOC view)
+
+`app/dashboard/index.html` has an "AEGIS-X Security Operations Center" section. It calls only the
+read-only routes above plus `GET /integrations/aegis-x/incidents` (metadata list). The operator key
+(`NEXUS_API_KEY`) is typed into a password field, kept in JavaScript memory only (never in
+localStorage/sessionStorage), sent as `X-API-Key`, and discarded on Disconnect or page hide. 401/403
+show a clean message. Data provenance is declared by the operator with `NEXUS_AEGIS_X_DATA_LABEL=demo|live`
+and shown as a banner; unset means "undeclared" and the dashboard warns not to assume live data.
