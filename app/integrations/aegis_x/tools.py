@@ -110,24 +110,25 @@ class AegisXReadOnlyTools:
         if inc is None:
             return self._envelope("not_found", incident_id=incident_id, evidence=[],
                                   uncertainty=[f"Incident {incident_id!r} is not in the loaded data."])
-        found, missing = self._resolve(snap, inc.finding_ids)
+        found, missing = self._resolve(snap, inc.member_finding_ids)
         found.sort(key=lambda f: f.observed_at)
         unc = _gaps(found)
         if missing:
             unc.append(f"Incident references finding_ids not present in loaded data: {', '.join(missing)}")
-        if not inc.finding_ids:
-            unc.append("Incident lists no finding_ids; nothing supports its scope.")
         sev = Counter(f.severity for f in found)
         return self._envelope(
-            "ok", incident_id=inc.incident_id, title=inc.title, incident_status=inc.status,
-            declared_severity=inc.severity, finding_count=len(found),
+            "ok", incident_id=inc.incident_id,
+            highest_severity=inc.highest_severity, score=inc.score,
+            declared_window={"first_seen": inc.first_seen.isoformat(), "last_seen": inc.last_seen.isoformat()},
+            grouping_reasons=inc.grouping_reasons, threat_intel_indicators=inc.threat_intel_indicators, finding_count=len(found),
             severity_counts=dict(sev),
             clouds=sorted({f.cloud for f in found}),
             resources=sorted({f.resource_id for f in found if f.resource_id}),
             time_span={"first": found[0].observed_at.isoformat(), "last": found[-1].observed_at.isoformat()} if found else None,
             timeline=[_brief(f) for f in found],
-            evidence=[_cite(f) for f in found], uncertainty=unc,
-            note="Summary lists recorded facts only; it does not assert compromise.",
+            evidence=[_cite(f) for f in found], incident_evidence_refs=[e.model_dump() for e in inc.evidence_refs],
+            uncertainty=unc,
+            note="Grouping and score come from AEGIS-X correlation and indicate possible relation, not confirmed compromise. Summary lists recorded facts only; it does not assert compromise.",
         )
 
     def correlate_evidence(self, finding_ids: list[str]):
