@@ -6,7 +6,7 @@ are used only for validation; nothing here performs I/O.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -16,8 +16,11 @@ Severity = Literal["critical", "high", "medium", "low", "informational"]
 SEVERITY_RANK = {"informational": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 
-def _aware(value: datetime) -> datetime:
-    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+def _require_timezone(value: datetime) -> datetime:
+    """Reject timestamps without an explicit timezone offset."""
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("timestamp must include an explicit timezone offset")
+    return value
 
 
 class EvidenceRef(BaseModel):
@@ -53,7 +56,7 @@ class Finding(BaseModel):
     @field_validator("observed_at", "first_seen", "last_seen", "ingested_at")
     @classmethod
     def _tz(cls, v):
-        return _aware(v) if v is not None else v
+        return _require_timezone(v) if v is not None else v
 
 
 class Incident(BaseModel):
@@ -73,4 +76,4 @@ class Incident(BaseModel):
     @field_validator("created_at")
     @classmethod
     def _tz(cls, v):
-        return _aware(v) if v is not None else v
+        return _require_timezone(v) if v is not None else v
