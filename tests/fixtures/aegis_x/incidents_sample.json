@@ -1,5 +1,12 @@
-{"incidents":[
- {"incident_id":"inc-1","title":"Possible credential misuse for alice","status":"open","severity":"high","finding_ids":["f-aws-001","f-aws-002","f-missing-9"]},
- {"incident_id":"inc-empty","title":"Empty incident","finding_ids":[]},
- {"title":"no id"}
-]}
+{"uncorrelated_finding_ids":["f-az-001","f-gcp-001"],
+ "incidents":[
+  {"incident_id":"inc-0123456789abcdef","member_finding_ids":["f-aws-001","f-aws-002","f-missing-9"],
+   "highest_severity":"high","clouds":["aws"],"accounts":["111122223333"],
+   "first_seen":"2026-11-01T09:30:00Z","last_seen":"2026-11-01T10:00:00Z","mitre_techniques":["T1078"],
+   "score":{"total":62,"components":{"severity":40,"shared_resource":22}},
+   "grouping_reasons":[{"a":"f-aws-001","b":"f-aws-002","score":22,"gap_seconds":1800,"reasons":[{"key":"resource_id","value":"arn:aws:iam::111122223333:user/alice","weight":22}]}],
+   "timeline":[{"time":"2026-11-01T09:30:00Z","finding_id":"f-aws-002","cloud":"aws","severity":"medium","title":"Recon: port probe"}],
+   "evidence_refs":[{"type":"cloudtrail_event","ref":"evt-1"}],
+   "raw_payload_refs":[{"finding_id":"f-aws-001","payload_sha256":"00"}]},
+  {"incident_id":"inc-bad","member_finding_ids":[],"highest_severity":"high"}
+ ]}
