@@ -249,6 +249,41 @@
                 padding: 19px;
             }
         }
+    
+        /* ===== AEGIS-X Security Operations Center ===== */
+        .soc { margin-top: 40px; }
+        .soc h2 { color: var(--cyan); margin: 0 0 6px; }
+        .soc h3 { color: var(--cyan); margin: 22px 0 10px; font-size: 17px; }
+        .soc-sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+        .soc-banner { padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; margin: 12px 0; border: 1px solid; }
+        .soc-banner.demo { background: rgba(251,191,36,.12); color: #fbbf24; border-color: #fbbf24; }
+        .soc-banner.undeclared { background: rgba(248,113,113,.10); color: var(--red); border-color: var(--red); }
+        .soc-banner.live { background: rgba(74,222,128,.10); color: var(--green); border-color: var(--green); }
+        .soc-banner.ro { background: var(--panel-light); color: var(--muted); border-color: var(--border); font-weight: 500; }
+        .soc-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+        .soc-bar input[type=password] { width: 260px; max-width: 100%; padding: 10px; background: var(--panel-light); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
+        .soc button.soc-btn, .soc-chip { width: auto; margin: 0; padding: 8px 14px; font-size: 13px; }
+        .soc-chip { background: var(--panel-light); color: var(--text); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+        .soc-chip.active { background: var(--blue); border-color: var(--cyan); }
+        .soc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 14px 0; }
+        .soc-card { background: var(--panel-light); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+        .soc-card .n { font-size: 26px; font-weight: 700; }
+        .soc-card .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .soc-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+        .soc table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .soc th, .soc td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .soc th { color: var(--muted); font-weight: 600; background: var(--panel-light); white-space: nowrap; }
+        .soc td.mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; word-break: break-all; }
+        .sev { padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .sev-critical { background: #7f1d1d; color: #fecaca; } .sev-high { background: #9a3412; color: #fed7aa; }
+        .sev-medium { background: #854d0e; color: #fef08a; } .sev-low { background: #1e3a8a; color: #bfdbfe; }
+        .sev-informational { background: #334155; color: #cbd5e1; }
+        .soc-detail { background: var(--panel-light); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-top: 10px; }
+        .soc-detail h4 { margin: 12px 0 6px; color: var(--text); font-size: 14px; }
+        .soc-detail ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13px; }
+        .soc-detail .fact { color: var(--green); } .soc-detail .infer { color: #fbbf24; } .soc-detail .unk { color: var(--red); }
+        .soc-err { color: var(--red); font-size: 13px; margin: 8px 0; }
+        .soc-empty { color: var(--muted); padding: 16px; font-size: 13px; }
     </style>
 </head>
 
@@ -326,6 +361,53 @@
             </div>
         </section>
 
+    </section>
+
+
+    <section class="panel soc" id="soc" aria-labelledby="socTitle">
+        <h2 id="socTitle">AEGIS-X Security Operations Center</h2>
+        <p class="soc-sub">Read-only intelligence view. NEXUS never executes cloud changes or remediation.</p>
+
+        <div class="soc-bar">
+            <input type="password" id="socKey" autocomplete="off" spellcheck="false"
+                   placeholder="Operator key (kept in memory only)" aria-label="Operator key">
+            <button class="soc-btn" id="socConnect">Connect</button>
+            <button class="soc-btn" id="socDisconnect" style="display:none">Disconnect</button>
+            <button class="soc-btn" id="socRefresh" style="display:none">Refresh</button>
+            <span id="socState" class="soc-sub" role="status"></span>
+        </div>
+        <div id="socAuthErr" class="soc-err" role="alert"></div>
+
+        <div id="socBanner"></div>
+
+        <div id="socBody" style="display:none">
+            <div class="soc-cards" id="socCards"></div>
+
+            <h3>Findings explorer</h3>
+            <div class="soc-bar" id="socCloudFilters" aria-label="Cloud filter"></div>
+            <div class="soc-bar" id="socSevFilters" aria-label="Severity filter"></div>
+            <div class="soc-scroll"><table>
+                <thead><tr><th></th><th>Finding ID</th><th>Cloud</th><th>Severity</th><th>Resource</th><th>Title</th><th>Observed</th><th>Status</th><th></th></tr></thead>
+                <tbody id="socFindings"></tbody>
+            </table></div>
+            <div class="soc-bar">
+                <button class="soc-btn" id="socCorrelate">Correlate selected evidence</button>
+                <button class="soc-btn" id="socRecommend">Recommendations for selected</button>
+                <span class="soc-sub" id="socSelCount">0 selected</span>
+            </div>
+            <div id="socCorrelation"></div>
+            <div id="socRecommendations"></div>
+
+            <h3>Incidents</h3>
+            <div class="soc-scroll"><table>
+                <thead><tr><th>Incident ID</th><th>Risk score</th><th>Severity</th><th>Findings</th><th>Clouds</th><th>MITRE ATT&amp;CK</th><th></th></tr></thead>
+                <tbody id="socIncidents"></tbody>
+            </table></div>
+            <div id="socIncidentDetail"></div>
+
+            <h3>Risk analysis</h3>
+            <div id="socRisk"><div class="soc-empty">Select "Explain risk" on a finding.</div></div>
+        </div>
     </section>
 
 </main>
@@ -510,6 +592,313 @@
             sendButton.textContent = "Send Message";
         }
     }
+</script>
+
+
+<script>
+(function () {
+    "use strict";
+    const BASE = "/integrations/aegis-x";
+    const CLOUDS = ["all", "aws", "azure", "gcp"];
+    const SEVS = ["all", "critical", "high", "medium", "low"];
+    // The operator key lives only in this closure: never in storage, the DOM after connect, or logs.
+    let apiKey = "";
+    let cloudFilter = "all", sevFilter = "all";
+    const selected = new Set();
+    const $ = (id) => document.getElementById(id);
+
+    function el(tag, cls, text) {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text !== undefined && text !== null) n.textContent = String(text);
+        return n;
+    }
+    function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+    function sev(s) { return el("span", "sev sev-" + String(s).replace(/[^a-z]/g, ""), s || "unknown"); }
+    function fmt(v) { return v === null || v === undefined || v === "" ? "—" : v; }
+
+    class ApiError extends Error { constructor(msg, status) { super(msg); this.status = status; } }
+
+    async function api(path, method, body) {
+        const headers = { "Content-Type": "application/json" };
+        if (apiKey) headers["X-API-Key"] = apiKey;
+        let res;
+        try {
+            res = await fetch(BASE + path, { method: method || "GET", headers, body: body ? JSON.stringify(body) : undefined });
+        } catch (e) {
+            throw new ApiError("Network error: NEXUS API unreachable.", 0);
+        }
+        if (res.status === 401) throw new ApiError("Authentication required (401): enter the operator key.", 401);
+        if (res.status === 403) throw new ApiError("Administrator access required (403): this key is not the operator credential.", 403);
+        if (res.status === 429) throw new ApiError("Rate limit exceeded (429): retry shortly.", 429);
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* non-JSON error body */ }
+        if (!res.ok) {
+            const d = data && (data.detail || data.error);
+            throw new ApiError("Request failed (" + res.status + ")" + (typeof d === "string" ? ": " + d : "."), res.status);
+        }
+        return data;
+    }
+
+    function list(items, cls) {
+        const ul = el("ul");
+        items.forEach((t) => ul.appendChild(el("li", cls, t)));
+        return ul;
+    }
+    function section(parent, title, items, cls) {
+        if (!items || !items.length) return;
+        parent.appendChild(el("h4", cls, title));
+        parent.appendChild(list(items, cls));
+    }
+    function showErr(target, e) {
+        clear(target);
+        target.appendChild(el("div", "soc-err", e.message));
+        if (e.status === 401 || e.status === 403) $("socAuthErr").textContent = e.message;
+    }
+    function citations(evidence) {
+        return (evidence || []).map((c) => c.finding_id + " (native_id: " + fmt(c.native_id) + ", " + c.cloud + "/" + c.provider + ")");
+    }
+
+    // ---- banner / state
+    function renderBanner(status) {
+        const b = $("socBanner");
+        clear(b);
+        const label = status.data_label;
+        if (label === "demo") b.appendChild(el("div", "soc-banner demo", "DEMO DATA: test fixtures, not live cloud telemetry."));
+        else if (label === "live") b.appendChild(el("div", "soc-banner live", "Data source declared LIVE by the operator (NEXUS_AEGIS_X_DATA_LABEL=live). NEXUS cannot verify this."));
+        else b.appendChild(el("div", "soc-banner undeclared", "DATA SOURCE NOT DECLARED: set NEXUS_AEGIS_X_DATA_LABEL=demo or live. Do not assume this is live telemetry."));
+        b.appendChild(el("div", "soc-banner ro",
+            "Integration: " + status.mode + " | configured: " + status.configured + " | findings loaded: " + status.findings_loaded +
+            " | incidents: " + status.incidents_loaded + " | quarantined: " + status.quarantined.length +
+            (status.error ? " | error: " + status.error : "")));
+    }
+
+    function card(label, value) {
+        const c = el("div", "soc-card");
+        c.appendChild(el("div", "n", value));
+        c.appendChild(el("div", "l", label));
+        return c;
+    }
+
+    // ---- findings
+    function chips(container, values, current, onPick) {
+        clear(container);
+        values.forEach((v) => {
+            const c = el("button", "soc-chip" + (v === current ? " active" : ""), v === "all" ? "All" : v.toUpperCase());
+            c.type = "button";
+            c.addEventListener("click", () => onPick(v));
+            container.appendChild(c);
+        });
+    }
+    function updateSelCount() { $("socSelCount").textContent = selected.size + " selected"; }
+
+    async function loadFindings() {
+        const body = el("tbody");
+        const target = $("socFindings");
+        clear(target);
+        const row = el("tr"); const cell = el("td", "soc-empty", "Loading findings…"); cell.colSpan = 9; row.appendChild(cell); target.appendChild(row);
+        try {
+            const q = { limit: 200 };
+            if (cloudFilter !== "all") q.cloud = cloudFilter;
+            if (sevFilter !== "all") q.severity = sevFilter;
+            const r = await api("/findings/query", "POST", q);
+            clear(target);
+            if (!r.findings.length) {
+                const tr = el("tr"); const td = el("td", "soc-empty", "No findings match. Absence of findings is not proof of absence of activity."); td.colSpan = 9; tr.appendChild(td); target.appendChild(tr);
+            }
+            r.findings.forEach((f) => {
+                const tr = el("tr");
+                const cb = el("input"); cb.type = "checkbox"; cb.checked = selected.has(f.finding_id);
+                cb.setAttribute("aria-label", "Select " + f.finding_id);
+                cb.addEventListener("change", () => { cb.checked ? selected.add(f.finding_id) : selected.delete(f.finding_id); updateSelCount(); });
+                const c0 = el("td"); c0.appendChild(cb); tr.appendChild(c0);
+                tr.appendChild(el("td", "mono", f.finding_id));
+                tr.appendChild(el("td", null, f.cloud));
+                const cs = el("td"); cs.appendChild(sev(f.severity)); tr.appendChild(cs);
+                tr.appendChild(el("td", "mono", fmt(f.resource_id)));
+                tr.appendChild(el("td", null, f.title));
+                tr.appendChild(el("td", null, f.observed_at));
+                tr.appendChild(el("td", null, fmt(f.status)));
+                const act = el("td"); const b = el("button", "soc-btn", "Explain risk"); b.type = "button";
+                b.addEventListener("click", () => explainRisk(f.finding_id)); act.appendChild(b); tr.appendChild(act);
+                target.appendChild(tr);
+            });
+            if (r.total_matches > r.returned) {
+                const tr = el("tr"); const td = el("td", "soc-empty", "Showing " + r.returned + " of " + r.total_matches + " matching findings. Narrow the filters to see others."); td.colSpan = 9; tr.appendChild(td); target.appendChild(tr);
+            }
+        } catch (e) { clear(target); const tr = el("tr"); const td = el("td"); td.colSpan = 9; showErr(td, e); tr.appendChild(td); target.appendChild(tr); }
+    }
+
+    async function loadIncidents() {
+        const target = $("socIncidents");
+        clear(target);
+        try {
+            const r = await api("/incidents");
+            if (!r.incidents.length) {
+                const tr = el("tr"); const td = el("td", "soc-empty", "No incidents loaded."); td.colSpan = 7; tr.appendChild(td); target.appendChild(tr);
+            }
+            r.incidents.forEach((i) => {
+                const tr = el("tr");
+                tr.appendChild(el("td", "mono", i.incident_id));
+                tr.appendChild(el("td", null, fmt(i.score_total) + " / 100"));
+                const cs = el("td"); cs.appendChild(sev(i.highest_severity)); tr.appendChild(cs);
+                tr.appendChild(el("td", null, i.member_count));
+                tr.appendChild(el("td", null, i.clouds.join(", ")));
+                tr.appendChild(el("td", null, i.mitre_techniques.length ? i.mitre_techniques.join(", ") : "none recorded"));
+                const act = el("td"); const b = el("button", "soc-btn", "Details"); b.type = "button";
+                b.addEventListener("click", () => incidentDetail(i.incident_id)); act.appendChild(b); tr.appendChild(act);
+                target.appendChild(tr);
+            });
+            return r.total;
+        } catch (e) { const tr = el("tr"); const td = el("td"); td.colSpan = 7; showErr(td, e); tr.appendChild(td); target.appendChild(tr); }
+    }
+
+    async function incidentDetail(id) {
+        const box = $("socIncidentDetail");
+        clear(box); box.appendChild(el("div", "soc-empty", "Loading incident…"));
+        try {
+            const r = await api("/incidents/summary", "POST", { incident_id: id });
+            clear(box);
+            const d = el("div", "soc-detail");
+            d.appendChild(el("h4", null, "Incident " + r.incident_id));
+            if (r.status === "not_found") { section(d, "Unknown", r.uncertainty, "unk"); box.appendChild(d); return; }
+            section(d, "Recorded by AEGIS-X", [
+                "Highest severity: " + r.highest_severity,
+                "Risk score: " + (r.score ? r.score.total : "n/a") + " / 100",
+                "Window: " + r.declared_window.first_seen + " to " + r.declared_window.last_seen,
+                "Findings resolved: " + r.finding_count + " | clouds: " + r.clouds.join(", "),
+                "Resources: " + (r.resources.length ? r.resources.join(", ") : "none recorded"),
+            ], "fact");
+            const why = [];
+            (r.grouping_reasons || []).forEach((g) => (g.reasons || []).forEach((x) => why.push(g.a + " + " + g.b + ": shared " + x.key + " = " + x.value + " (weight " + x.weight + ", gap " + g.gap_seconds + "s)")));
+            section(d, "Why AEGIS-X grouped these (possible relation, not confirmed compromise)", why, "infer");
+            section(d, "Timeline", (r.timeline || []).map((t) => t.observed_at + " [" + t.severity + "] " + t.finding_id + ": " + t.title), "fact");
+            section(d, "Evidence (finding_id / native_id)", citations(r.evidence), "fact");
+            section(d, "Unknown / uncertainty", r.uncertainty, "unk");
+            if (r.note) d.appendChild(el("p", "soc-sub", r.note));
+            box.appendChild(d);
+        } catch (e) { showErr(box, e); }
+    }
+
+    async function explainRisk(id) {
+        const box = $("socRisk");
+        clear(box); box.appendChild(el("div", "soc-empty", "Loading risk analysis…"));
+        try {
+            const r = await api("/risk/explain", "POST", { finding_id: id });
+            clear(box);
+            const d = el("div", "soc-detail");
+            d.appendChild(el("h4", null, "Finding " + id));
+            if (r.status === "not_found") { section(d, "Unknown", r.uncertainty, "unk"); box.appendChild(d); return; }
+            section(d, "Confirmed facts (recorded in the finding)", r.recorded_facts, "fact");
+            section(d, "Inferred risk (assessment, not confirmed)", r.assessment ? [r.assessment] : [], "infer");
+            section(d, "Evidence (finding_id / native_id)", citations(r.evidence), "fact");
+            section(d, "Unknown / uncertainty", r.uncertainty, "unk");
+            box.appendChild(d);
+        } catch (e) { showErr(box, e); }
+    }
+
+    async function correlate() {
+        const box = $("socCorrelation");
+        if (selected.size < 2) { clear(box); box.appendChild(el("div", "soc-err", "Select at least two findings to correlate.")); return; }
+        clear(box); box.appendChild(el("div", "soc-empty", "Correlating…"));
+        try {
+            const r = await api("/evidence/correlate", "POST", { finding_ids: Array.from(selected).slice(0, 50) });
+            clear(box);
+            const d = el("div", "soc-detail");
+            d.appendChild(el("h4", null, "Evidence correlation"));
+            section(d, "Shared attributes (possible relation only)", (r.links || []).map((l) => l.shared + " = " + l.value + " → " + l.finding_ids.join(", ") + " (native_ids: " + l.native_ids.map(fmt).join(", ") + ")"), "infer");
+            if (!(r.links || []).length) d.appendChild(el("p", "soc-sub", "No shared attributes found among the selected findings."));
+            section(d, "Timeline", (r.timeline || []).map((t) => t.observed_at + " [" + t.severity + "] " + t.finding_id + ": " + t.title), "fact");
+            section(d, "Evidence (finding_id / native_id)", citations(r.evidence), "fact");
+            section(d, "Unknown / uncertainty", r.uncertainty, "unk");
+            box.appendChild(d);
+        } catch (e) { showErr(box, e); }
+    }
+
+    async function recommend() {
+        const box = $("socRecommendations");
+        if (!selected.size) { clear(box); box.appendChild(el("div", "soc-err", "Select at least one finding.")); return; }
+        clear(box); box.appendChild(el("div", "soc-empty", "Loading recommendations…"));
+        try {
+            const r = await api("/recommendations/text", "POST", { finding_ids: Array.from(selected).slice(0, 50) });
+            clear(box);
+            const d = el("div", "soc-detail");
+            d.appendChild(el("div", "soc-banner ro", "Informational only. These suggestions are not executed; NEXUS performs no remediation. A human operator must decide and act through your approved process."));
+            section(d, "Suggested actions (text only)", r.recommendations, "infer");
+            section(d, "Evidence (finding_id / native_id)", citations(r.evidence), "fact");
+            section(d, "Unknown / uncertainty", r.uncertainty, "unk");
+            box.appendChild(d);
+        } catch (e) { showErr(box, e); }
+    }
+
+    // ---- overview / lifecycle
+    async function loadOverview() {
+        const cards = $("socCards");
+        const count = async (severity) => (await api("/findings/query", "POST", severity ? { severity, limit: 1 } : { limit: 1 })).total_matches;
+        const [total, c, h, m, l, status] = await Promise.all([count(), count("critical"), count("high"), count("medium"), count("low"), api("/status")]);
+        renderBanner(status);
+        clear(cards);
+        cards.appendChild(card("Total findings", total));
+        cards.appendChild(card("Critical", c));
+        cards.appendChild(card("High", h));
+        cards.appendChild(card("Medium", m));
+        cards.appendChild(card("Low", l));
+        cards.appendChild(card("Incidents", status.incidents_loaded));
+        cards.appendChild(card("Integration", status.configured ? (status.error ? "error" : "online") : "not configured"));
+    }
+
+    async function refresh() {
+        $("socAuthErr").textContent = "";
+        $("socState").textContent = "Loading…";
+        $("socRefresh").disabled = true;
+        try {
+            await loadOverview();
+            $("socBody").style.display = "";
+            renderFilters();
+            await Promise.all([loadFindings(), loadIncidents()]);
+            $("socConnect").style.display = "none";
+            $("socDisconnect").style.display = ""; $("socRefresh").style.display = "";
+            $("socKey").style.display = "none";
+            $("socState").textContent = "Connected. Updated " + new Date().toLocaleTimeString();
+        } catch (e) {
+            $("socState").textContent = "";
+            $("socAuthErr").textContent = e.message;
+            $("socBody").style.display = "none";
+            if (e.status === 401 || e.status === 403) apiKey = "";
+        } finally { $("socRefresh").disabled = false; }
+    }
+
+    function renderFilters() {
+        const pickCloud = (v) => { cloudFilter = v; renderFilters(); loadFindings(); };
+        const pickSev = (v) => { sevFilter = v; renderFilters(); loadFindings(); };
+        chips($("socCloudFilters"), CLOUDS, cloudFilter, pickCloud);
+        chips($("socSevFilters"), SEVS, sevFilter, pickSev);
+    }
+
+    function disconnect() {
+        apiKey = "";
+        $("socKey").value = "";
+        selected.clear(); updateSelCount();
+        ["socFindings", "socIncidents", "socCards", "socBanner", "socCorrelation", "socRecommendations", "socIncidentDetail"].forEach((i) => clear($(i)));
+        $("socBody").style.display = "none";
+        $("socKey").style.display = "";
+        $("socConnect").style.display = ""; $("socDisconnect").style.display = "none"; $("socRefresh").style.display = "none";
+        $("socState").textContent = "Disconnected.";
+    }
+
+    $("socConnect").addEventListener("click", () => {
+        apiKey = $("socKey").value.trim();
+        $("socKey").value = "";   // remove the secret from the input once captured in memory
+        renderFilters();
+        refresh();
+    });
+    $("socKey").addEventListener("keydown", (e) => { if (e.key === "Enter") $("socConnect").click(); });
+    $("socDisconnect").addEventListener("click", disconnect);
+    $("socRefresh").addEventListener("click", refresh);
+    $("socCorrelate").addEventListener("click", correlate);
+    $("socRecommend").addEventListener("click", recommend);
+    window.addEventListener("pagehide", () => { apiKey = ""; });
+})();
 </script>
 
 </body>

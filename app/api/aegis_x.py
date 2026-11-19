@@ -3,6 +3,7 @@
 POST is used only to carry query bodies; every route reads local data.
 """
 
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -48,19 +49,32 @@ def _run(tool, **params):
     return result
 
 
+def _data_label():
+    value = os.getenv("NEXUS_AEGIS_X_DATA_LABEL", "").strip().lower()
+    return value if value in {"demo", "live"} else "undeclared"
+
+
 @router.get("/status")
 def aegis_x_status():
     snap = load_snapshot()
     return {
         "mode": "read-only", "configured": snap.configured, "error": snap.error,
         "files_read": snap.files_read, "findings_loaded": len(snap.findings),
-        "incidents_loaded": len(snap.incidents), "quarantined": [q.as_dict() for q in snap.quarantine],
+        "incidents_loaded": len(snap.incidents),
+        # Declared by the operator (NEXUS_AEGIS_X_DATA_LABEL=demo|live); never inferred, so it is
+        # reported as "undeclared" rather than assumed to be live.
+        "data_label": _data_label(), "quarantined": [q.as_dict() for q in snap.quarantine],
     }
 
 
 @router.post("/findings/query")
 def query_findings(request: FindingsQuery):
     return _run("query_findings", **request.model_dump())
+
+
+@router.get("/incidents")
+def list_incidents():
+    return _run("list_incidents")
 
 
 @router.post("/incidents/summary")

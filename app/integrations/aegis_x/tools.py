@@ -16,7 +16,7 @@ from app.integrations.aegis_x.store import AegisXSnapshot, load_snapshot
 
 MAX_RESULTS = 200
 READ_ONLY_TOOLS = (
-    "query_findings", "summarize_incident", "correlate_evidence",
+    "query_findings", "list_incidents", "summarize_incident", "correlate_evidence",
     "explain_risk", "recommend_actions",
 )
 
@@ -101,6 +101,25 @@ class AegisXReadOnlyTools:
             findings=[_brief(f) for f in shown],
             evidence=[_cite(f) for f in shown], uncertainty=unc,
         )
+
+    def list_incidents(self):
+        """Metadata of loaded incidents as recorded by AEGIS-X (no recomputation)."""
+        snap = self._snap()
+        if snap.error:
+            return self._unavailable(snap)
+        rows = [{
+            "incident_id": i.incident_id, "highest_severity": i.highest_severity,
+            "score_total": i.score.get("total"), "member_count": len(i.member_finding_ids),
+            "clouds": i.clouds, "mitre_techniques": i.mitre_techniques,
+            "first_seen": i.first_seen.isoformat(), "last_seen": i.last_seen.isoformat(),
+        } for i in snap.incidents.values()]
+        rows.sort(key=lambda r: (-(r["score_total"] or 0), r["incident_id"]))
+        unc = []
+        if snap.quarantine:
+            unc.append(f"{len(snap.quarantine)} record(s) were quarantined as invalid and are excluded.")
+        if not rows:
+            unc.append("No incidents loaded; this does not show that no related activity occurred.")
+        return self._envelope("ok", total=len(rows), incidents=rows, evidence=[], uncertainty=unc)
 
     def summarize_incident(self, incident_id: str):
         snap = self._snap()
