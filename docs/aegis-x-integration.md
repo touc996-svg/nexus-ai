@@ -12,9 +12,12 @@ integration is strictly **read-only**.
   `finding.schema.json`, copied from the AEGIS-X repo; re-sync manually when it changes).
   Invalid, non-JSON or duplicate-id records are **quarantined** (reported by
   `GET /integrations/aegis-x/status`, never silently dropped, never written anywhere).
-- **Incidents**: AEGIS-X publishes no incident schema yet. The `Incident` model is a minimal
-  NEXUS-side assumption (`incident_id`, `title`, `finding_ids`, optional status/severity).
-  Align it once AEGIS-X defines one.
+- **Incidents**: the `Incident` model mirrors AEGIS-X `pipeline/schemas/incident.schema.json`
+  (`member_finding_ids`, `highest_severity`, `score`, `grouping_reasons`, ...). A document
+  `{"incidents": [...], "uncorrelated_finding_ids": [...]}` is accepted from `incidents*.json`.
+  Naive timestamps are quarantined. Verified only against hand-built fixtures: no real pipeline
+  output was available. Incident summaries cite AEGIS-X grouping reasons and score but state that
+  they indicate possible relation, not confirmed compromise.
 - **Tools** (Cybersecurity agent, allowlisted): `query_findings` (cloud, severity, resource,
   time range), `summarize_incident`, `correlate_evidence`, `explain_risk`,
   `recommend_actions` (text only).

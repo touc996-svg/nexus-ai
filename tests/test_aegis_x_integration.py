@@ -27,7 +27,7 @@ def client(monkeypatch):
 def test_loader_validates_and_quarantines():
     snap = load_snapshot(FIXTURES)
     assert set(snap.findings) == {"f-aws-001", "f-aws-002", "f-az-001", "f-gcp-001"}
-    assert set(snap.incidents) == {"inc-1", "inc-empty"}
+    assert set(snap.incidents) == {"inc-0123456789abcdef"}
     reasons = " | ".join(q.reason for q in snap.quarantine)
     assert len(snap.quarantine) == 5
     assert "invalid JSON" in reasons and "duplicate id" in reasons and "schema validation failed" in reasons
@@ -49,8 +49,10 @@ def test_loader_rejects_timestamps_without_timezone(tmp_path):
 
     incidents = tmp_path / "incidents.jsonl"
     incidents.write_text(
-        '{"incident_id":"naive-incident","title":"Naive incident",'
-        '"created_at":"2026-11-10T10:00:00"}\n',
+        '{"incident_id":"naive-incident","member_finding_ids":["aware-finding"],'
+        '"highest_severity":"high","clouds":["aws"],"first_seen":"2026-11-10T10:00:00",'
+        '"last_seen":"2026-11-10T10:05:00Z","score":{"total":1,"components":{}},'
+        '"grouping_reasons":[],"timeline":[],"evidence_refs":[],"raw_payload_refs":[]}\n',
         encoding="utf-8",
     )
 
@@ -64,7 +66,7 @@ def test_loader_rejects_timestamps_without_timezone(tmp_path):
     assert len(snapshot.quarantine) == 2
     assert all("schema validation failed" in item.reason for item in snapshot.quarantine)
     assert any("observed_at" in item.reason for item in snapshot.quarantine)
-    assert any("created_at" in item.reason for item in snapshot.quarantine)
+    assert any("first_seen" in item.reason for item in snapshot.quarantine)
 
 def test_loader_unconfigured_and_missing_dir(monkeypatch, tmp_path):
     monkeypatch.delenv(ENV_VAR, raising=False)
@@ -92,12 +94,13 @@ def test_empty_result_states_uncertainty(tools):
 
 
 def test_incident_summary_flags_missing_findings(tools):
-    r = tools.summarize_incident("inc-1")
+    r = tools.summarize_incident("inc-0123456789abcdef")
     assert r["finding_count"] == 2
     assert {e["finding_id"] for e in r["evidence"]} == {"f-aws-001", "f-aws-002"}
     assert any("f-missing-9" in u for u in r["uncertainty"])
     assert tools.summarize_incident("nope")["status"] == "not_found"
-    assert any("no finding_ids" in u for u in tools.summarize_incident("inc-empty")["uncertainty"])
+    assert r["score"]["total"] == 62 and r["grouping_reasons"][0]["reasons"][0]["key"] == "resource_id"
+    assert r["highest_severity"] == "high"
 
 
 def test_correlate_and_no_overclaim(tools):
@@ -182,7 +185,7 @@ def test_endpoints(client):
     r = client.post("/integrations/aegis-x/findings/query", json={"cloud": "aws", "severity": "high"})
     assert r.status_code == 200 and r.json()["evidence"][0]["finding_id"] == "f-aws-001"
     assert client.post("/integrations/aegis-x/findings/query", json={"cloud": "oracle"}).status_code == 422
-    assert client.post("/integrations/aegis-x/incidents/summary", json={"incident_id": "inc-1"}).json()["finding_count"] == 2
+    assert client.post("/integrations/aegis-x/incidents/summary", json={"incident_id": "inc-0123456789abcdef"}).json()["finding_count"] == 2
     assert client.post("/integrations/aegis-x/evidence/correlate", json={"finding_ids": ["f-aws-001", "f-aws-002"]}).status_code == 200
     assert client.post("/integrations/aegis-x/risk/explain", json={"finding_id": "f-gcp-001"}).json()["evidence"]
     assert client.post("/integrations/aegis-x/recommendations/text", json={"finding_ids": ["f-aws-001"]}).json()["executes_actions"] is False
