@@ -7,6 +7,21 @@
 
 NEXUS AI is a modular AI platform designed to bring enterprise assistance, personal productivity, and cybersecurity analysis together through a unified multi-agent architecture.
 
+## NEXUS AI Platform Showcase
+
+NEXUS AI is a unified multi-agent platform: three specialized agents behind one FastAPI backend and one web dashboard.
+
+- **Enterprise AI:** business analysis, strategic planning, documents and operations.
+- **Personal AI:** personal planning, productivity and everyday assistance.
+- **Cybersecurity AI:** security analysis, threat assessment and defensive recommendations.
+- **Unified options:** *NEXUS Auto* routes a conversation to the right place, and *All Three Agents* runs a coordinated team workflow.
+- **AEGIS-X Security Operations Center:** a dashboard section for exploring normalized AEGIS-X findings and incidents (AWS, Azure and GCP filters, severity filters, risk explanations, evidence correlation and text-only recommendations), with demo/live data labeling.
+- **Read-only security boundary:** the AEGIS-X integration only reads local findings. NEXUS never executes cloud changes or remediation, imports no cloud SDK and receives no cloud credentials. Its routes are administrator-only, so a scoped-user key gets 403.
+
+This is a development and portfolio project, not a production-ready system (see the limitations below and [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md)).
+
+**Full showcase, architecture diagram, security design, demo walkthrough and verification results:** [docs/NEXUS_AI_SHOWCASE.md](docs/NEXUS_AI_SHOWCASE.md). Integration design and the requirements for any future response execution: [docs/aegis-x-integration.md](docs/aegis-x-integration.md).
+
 ## Project Overview
 
 NEXUS AI uses specialized agents coordinated by a central orchestrator. It combines automated routing, rule-based decision support, input-validation guardrails (enforced type, length and size limits), and persistent SQLite memory.
