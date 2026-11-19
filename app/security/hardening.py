@@ -50,6 +50,16 @@ class SecuritySettings:
     identity_rate_limit_per_minute: int = 120
     jwt: JwtSettings | None = None
 
+    def __repr__(self) -> str:  # never let a key reach a log line or an error page through repr() or str()
+        return (
+            f"SecuritySettings(demo_mode={self.demo_mode}, app_env={self.app_env!r}, "
+            f"api_key=<{'set' if self.api_key else 'unset'}>, user_keys=<{len(self.user_keys)} hidden>, "
+            f"require_api_key={self.require_api_key}, cors_origins={self.cors_origins!r}, "
+            f"rate_limit_per_minute={self.rate_limit_per_minute}, max_request_bytes={self.max_request_bytes}, "
+            f"keystore_enabled={self.keystore_enabled}, "
+            f"identity_rate_limit_per_minute={self.identity_rate_limit_per_minute}, jwt={self.jwt!r})"
+        )
+
 
 MIN_USER_KEY_LENGTH = 24
 

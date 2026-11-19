@@ -12,6 +12,21 @@ router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
 MAX_FILE_SIZE = 20 * 1024 * 1024
+MAX_SOURCE_NAME_LENGTH = 200
+
+
+def safe_source_name(filename: str, suffix: str) -> str:
+    """The name a document is stored and cited under: the uploaded file's own name, made safe.
+
+    Only the base name is kept; control characters and the bracket, newline and pipe characters that the
+    reference header in prompts is built from are replaced, and the length is capped. The result keeps the
+    checked suffix. The same file name therefore maps to the same source id, so re-uploading a document
+    replaces its chunks instead of adding a second copy.
+    """
+    stem = Path(filename).stem
+    cleaned = "".join("_" if (ord(c) < 33 or c in "[]|\\/:") else c for c in stem).strip("_ .")
+    cleaned = cleaned[:MAX_SOURCE_NAME_LENGTH - len(suffix)] or "document"
+    return cleaned + suffix
 
 
 class KnowledgeSearchRequest(BaseModel):
@@ -47,21 +62,17 @@ async def ingest_document(
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
-    temp_path = None
-
     try:
-        with tempfile.NamedTemporaryFile(
-            suffix=suffix,
-            delete=False
-        ) as temp:
-            temp.write(content)
-            temp_path = temp.name
-
-        return rag.ingest_file(
-            temp_path,
-            user_id=user_id,
-            metadata={"filename": filename}
-        )
+        # The file is written under its own (sanitized) name inside a private temporary directory, so the
+        # document is stored and cited under that name rather than a random temporary one.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = os.path.join(temp_dir, safe_source_name(filename, suffix))
+            Path(temp_path).write_bytes(content)
+            return rag.ingest_file(
+                temp_path,
+                user_id=user_id,
+                metadata={"filename": filename}
+            )
 
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -70,9 +81,6 @@ async def ingest_document(
             status_code=500,
             detail=f"Document ingestion failed: {type(exc).__name__}"
         ) from exc
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
         await file.close()
 
 
