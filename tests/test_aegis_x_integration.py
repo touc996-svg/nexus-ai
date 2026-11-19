@@ -34,6 +34,38 @@ def test_loader_validates_and_quarantines():
     assert snap.findings["f-aws-001"].severity == "high"  # first duplicate kept
 
 
+
+def test_loader_rejects_timestamps_without_timezone(tmp_path):
+    findings = tmp_path / "findings.jsonl"
+    findings.write_text(
+        '{"finding_id":"naive-finding","cloud":"aws","provider":"test",'
+        '"severity":"high","title":"Naive timestamp",'
+        '"observed_at":"2026-11-10T10:00:00"}\n'
+        '{"finding_id":"aware-finding","cloud":"aws","provider":"test",'
+        '"severity":"high","title":"Aware timestamp",'
+        '"observed_at":"2026-11-10T10:00:00Z"}\n',
+        encoding="utf-8",
+    )
+
+    incidents = tmp_path / "incidents.jsonl"
+    incidents.write_text(
+        '{"incident_id":"naive-incident","title":"Naive incident",'
+        '"created_at":"2026-11-10T10:00:00"}\n',
+        encoding="utf-8",
+    )
+
+    snapshot = load_snapshot(tmp_path)
+
+    assert "naive-finding" not in snapshot.findings
+    assert "aware-finding" in snapshot.findings
+    assert snapshot.findings["aware-finding"].observed_at.utcoffset().total_seconds() == 0
+
+    assert "naive-incident" not in snapshot.incidents
+    assert len(snapshot.quarantine) == 2
+    assert all("schema validation failed" in item.reason for item in snapshot.quarantine)
+    assert any("observed_at" in item.reason for item in snapshot.quarantine)
+    assert any("created_at" in item.reason for item in snapshot.quarantine)
+
 def test_loader_unconfigured_and_missing_dir(monkeypatch, tmp_path):
     monkeypatch.delenv(ENV_VAR, raising=False)
     assert load_snapshot().configured is False
