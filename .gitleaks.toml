@@ -1,0 +1,12 @@
+title = "NEXUS AI gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credentials used by tests, and eval cache keys (content hashes)"
+paths = [
+  '''^tests/''',
+  '''^evals/recovery/''',
+  '''^evals/cache/''',
+]
