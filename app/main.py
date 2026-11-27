@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.core.orchestrator import nexus
+from app.core.database import engine, is_sqlite
 from app.core.decision_engine import decision_engine
 from app.core.memory import memory
 from app.core.router import router
@@ -148,7 +149,7 @@ def memory_status():
     return {
         "name": "NexusMemory",
         "status": "active",
-        "storage": "sqlite",
+        "storage": "sqlite" if is_sqlite(engine.url) else "postgresql",
         "database": "configured database",
         "max_messages_per_session": memory.max_messages
     }
