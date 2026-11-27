@@ -18,7 +18,7 @@ Run on the application code and tests of the Phase 2 follow-up (commit `664ad99`
 
 | Check | Status | Result and command |
 |---|---|---|
-| Test suite | VERIFIED | 432 passed, 1 skipped, 0 failed: `python -m pytest -q` |
+| Test suite | VERIFIED | 480 passed, 1 skipped, 0 failed: `python -m pytest -q`; with `EVALS_QDRANT_URL` set, 481 passed, 0 skipped |
 | Evaluation regression gate | VERIFIED | "quality gate passed": `python -m evals.run --check` |
 | Frozen retrieval configuration | VERIFIED | matches: `python -m evals.freeze_nexus_config --check` |
 | Compilation | VERIFIED | `python -m compileall -q app evals tests` |
@@ -27,10 +27,24 @@ Run on the application code and tests of the Phase 2 follow-up (commit `664ad99`
 | Type check (mypy) | VERIFIED | 13 errors in the same 4 files as `main`, none in the new modules; not triaged: `mypy app --ignore-missing-imports` |
 | Installed dependencies consistent | VERIFIED | `pip check`: no broken requirements |
 | Dependency vulnerability audit | BLOCKED | `pip-audit` cannot run on `requirements.txt` while `openai` is unpinned; not re-run here |
-| Docker image build | BLOCKED | the Docker daemon is not running (`docker info` exits 1). CI builds the image; it was not built locally |
-| Qdrant server integration | NOT VERIFIED | `test_against_a_real_qdrant_server` is skipped (`EVALS_QDRANT_URL` unset); only the in-process Qdrant client was tested |
+| Docker image build and run | VERIFIED | `docker build` succeeded locally; the container runs as `nexus` (uid 999), its `HEALTHCHECK` reports healthy, and `/chat` answers in demo mode |
+| Qdrant server integration | VERIFIED | `test_against_a_real_qdrant_server` passed against Qdrant 1.20 in Docker (`EVALS_QDRANT_URL=http://127.0.0.1:6333`); live through `uvicorn` on an isolated collection: `/health/ready` ready, ingest (2 chunks), `/knowledge/search` with source, chunk index and score, `/chat` answering from the document, source delete, `/system/rag-health` healthy |
 | Continuous integration on this change | NOT VERIFIED | nothing was pushed, so the workflow has not run on it |
 | Behaviour with a live model | NOT VERIFIED | every test blocks inference; nothing here claims live-model quality or safety |
+
+**Local demonstration (VERIFIED, 2026-11-16).** Started with `uvicorn app.main:app` on a scratch SQLite database, against the
+local Ollama models (`qwen3:1.7b`, `nomic-embed-text`), with no Qdrant server running. Live, with real model output:
+`/agents/enterprise`, `/agents/personal` and `/agents/cybersecurity` each answered (5 to 12 s); `/auto` routed a ransomware,
+a certification-study and a regional-expansion prompt to cybersecurity, personal and enterprise, each with high confidence, and
+asked for clarification on "Tell me something."; `/team` ran all three agents and produced the final report (52 s); two `/chat`
+turns in one session were stored (4 messages) and the second turn used the first (the agent answered about the exam the user
+had named), and the profile learned the stated goal; empty, blank and oversized input returned 422, 400 and 422. With retrieval
+working (in-memory Qdrant, real embeddings) `/chat` answered from a 1,527-word document after the composed-message fix.
+With a Qdrant server reachable (verified later the same day), `/health/ready` reports ready and `/knowledge/search` returns
+results; without one it returns 500 (a 503 would describe it better) and readiness reports not ready. The 1.7B model sometimes
+returns malformed intent JSON, which `/chat` turns into "Could you rephrase your request"; a larger model (`NEXUS_MODEL=qwen3:4b`
+is installed) reduces that. Also fixed and verified against the server: citations now carry the uploaded file name (they read
+`tmpXXXX.txt` before) and re-uploading a file replaces it instead of storing it twice.
 
 Each security feature in section 2 was also mutation-checked on a scratch copy (a protection is removed and the tests
 must fail). That check is a throwaway script, not part of CI.
@@ -63,24 +77,21 @@ What enforces these, and the tests behind them, is in `README.md` ("Identity and
 
 ## 3. Known gaps that block an untrusted multi-user release
 
-Ranked by security and business priority. The first three are the ones a reviewer should ask about.
+Ranked by security and business priority. The first two are the ones a reviewer should ask about.
 
 1. **AI input and output security (Phase 3) is not started.** No prompt-injection or indirect-injection detection, no
    delimiter neutralization, no PII handling, no validation of free-text model output, no adversarial tests
    (`docs/ENGINEERING_AUDIT.md` section 4.1). Instructions that tell a model to treat retrieved text as untrusted are advisory.
-2. **`/chat` can fail a valid request.** The orchestrator guardrail measures the user message plus appended retrieved text
-   against 5,000 characters, so a large retrieved block makes an agent task fail with "Message exceeds maximum length"
-   (observed with stubs, not yet fixed or covered by a test; section 4.1 of the audit).
-3. **No OIDC.** Only HS256 bearer tokens with a shared secret exist. RS256, JWKS and OIDC discovery need `cryptography` and a
+2. **No OIDC.** Only HS256 bearer tokens with a shared secret exist. RS256, JWKS and OIDC discovery need `cryptography` and a
    reachable identity provider.
-4. Rate limits are not shared across workers or instances (a shared store such as Redis is not available here), and users
+3. Rate limits are not shared across workers or instances (a shared store such as Redis is not available here), and users
    behind one proxy share one per-address budget.
-5. The environment keys are plaintext and non-expiring; stored keys fix that only for keys issued through the key store, which
+4. The environment keys are plaintext and non-expiring; stored keys fix that only for keys issued through the key store, which
    is one SQL table managed from the command line, not a managed secret service.
-6. Dependencies are not reproducible (`openai` unpinned, no lockfile), CI has no lint, type or dependency-audit step, and the
-   container and the Qdrant server path were never run in this environment.
-7. Production retrieval is dense-only; hybrid retrieval, reranking, citations and abstention exist only in the evaluation harness.
-8. No distributed tracing or cost tracking, no multimodal ingestion, no Compose, Kubernetes or Helm.
+5. Dependencies are not reproducible (`openai` unpinned, no lockfile), CI has no lint, type or dependency-audit step, and the
+   the Qdrant server path is covered by one test that CI does not run (it needs a server).
+6. Production retrieval is dense-only; hybrid retrieval, reranking, citations and abstention exist only in the evaluation harness.
+7. No distributed tracing or cost tracking, no multimodal ingestion, no Compose, Kubernetes or Helm.
 
 The public demo (`NEXUS_DEMO_MODE=true`) is deterministic, stateless and has authentication off by design; it must never hold
 real data.
