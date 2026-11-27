@@ -1,0 +1,77 @@
+import pytest
+from sqlalchemy.engine import make_url
+
+from app.core import database as db
+
+
+def opts(raw):
+    return db.build_engine_options(db.normalize_database_url(raw))
+
+
+def test_sqlite_options_are_unchanged_for_local_development():
+    url, kwargs = opts("sqlite:///./nexus.db")
+    assert url.get_backend_name() == "sqlite"
+    assert kwargs["connect_args"] == {"timeout": 30, "check_same_thread": False}
+    assert "pool_size" not in kwargs
+
+
+@pytest.mark.parametrize("scheme", ["postgres", "postgresql", "postgresql+psycopg2", "postgresql+psycopg"])
+def test_postgres_spellings_map_to_psycopg3(scheme):
+    url, _ = opts(f"{scheme}://u:p@ep-x.neon.tech/db?sslmode=require")
+    assert url.drivername == "postgresql+psycopg"
+
+
+def test_remote_host_defaults_to_tls_and_pool_is_configured():
+    url, kwargs = opts("postgresql://u:p@ep-x-pooler.neon.tech/db")
+    assert kwargs["connect_args"]["sslmode"] == "require"
+    assert kwargs["connect_args"]["prepare_threshold"] is None  # PgBouncer transaction mode
+    assert kwargs["pool_pre_ping"] is True
+    assert (kwargs["pool_size"], kwargs["max_overflow"], kwargs["pool_recycle"]) == (5, 5, 300)
+    assert "sslmode" not in url.query
+
+
+@pytest.mark.parametrize("mode", ["disable", "allow", "prefer"])
+def test_remote_host_refuses_weak_tls_modes(mode):
+    with pytest.raises(ValueError, match="sslmode"):
+        opts(f"postgresql://u:p@db.example.com/db?sslmode={mode}")
+
+
+def test_verify_full_and_channel_binding_are_kept():
+    _, kwargs = opts("postgresql://u:p@db.example.com/db?sslmode=verify-full&channel_binding=require")
+    assert kwargs["connect_args"]["sslmode"] == "verify-full"
+    assert kwargs["connect_args"]["channel_binding"] == "require"
+
+
+def test_local_postgres_does_not_force_tls():
+    _, kwargs = opts("postgresql://u:p@localhost:5432/db")
+    assert "sslmode" not in kwargs["connect_args"]
+
+
+def test_pool_settings_come_from_the_environment_and_are_bounded(monkeypatch):
+    monkeypatch.setenv("DB_POOL_SIZE", "12")
+    monkeypatch.setenv("DB_POOL_RECYCLE", "120")
+    _, kwargs = opts("postgresql://u:p@db.example.com/db?sslmode=require")
+    assert kwargs["pool_size"] == 12 and kwargs["pool_recycle"] == 120
+    monkeypatch.setenv("DB_POOL_SIZE", "0")
+    with pytest.raises(ValueError, match="DB_POOL_SIZE"):
+        opts("postgresql://u:p@db.example.com/db?sslmode=require")
+
+
+def test_other_backends_are_rejected():
+    with pytest.raises(ValueError):
+        opts("mysql://u:p@h/db")
+
+
+def test_password_is_hidden_when_the_url_is_described():
+    text = make_url("postgresql://user:s3cretvalue@h.example.com/db").render_as_string(hide_password=True)
+    assert "s3cretvalue" not in text
+
+
+def test_auto_create_defaults(monkeypatch):
+    monkeypatch.delenv("NEXUS_DB_AUTO_CREATE", raising=False)
+    monkeypatch.setattr(db, "_URL", make_url("sqlite:///x.db"))
+    assert db.auto_create_enabled() is True
+    monkeypatch.setattr(db, "_URL", make_url("postgresql+psycopg://u:p@h/db"))
+    assert db.auto_create_enabled() is False
+    monkeypatch.setenv("NEXUS_DB_AUTO_CREATE", "true")
+    assert db.auto_create_enabled() is True
