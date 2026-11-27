@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import math
 import os
 import threading
@@ -12,6 +13,10 @@ import httpx
 from docx import Document
 from pypdf import PdfReader
 from qdrant_client import QdrantClient, models
+
+from app.services.qdrant_config import build_qdrant_client, ensure_tenant_index
+
+logger = logging.getLogger("nexus.rag")
 
 
 class NexusRAG:
@@ -65,15 +70,13 @@ class NexusRAG:
                         if self.demo_mode:
                             self._client = QdrantClient(location=":memory:")
                         else:
-                            self._client = QdrantClient(
-                                url=os.getenv(
-                                    "QDRANT_URL",
-                                    "http://localhost:6333"
-                                ),
-                                timeout=30
-                            )
+                            self._client = build_qdrant_client()
 
                     self._ensure_collection()
+                    try:
+                        ensure_tenant_index(self._client, self.COLLECTION)
+                    except Exception as exc:  # isolation is enforced by the query filter; the index is an optimisation
+                        logger.warning("qdrant_tenant_index_unavailable error_type=%s", type(exc).__name__)
                     self._client_ready = True
 
         return self._client
