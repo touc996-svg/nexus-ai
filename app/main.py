@@ -2,6 +2,7 @@ import logging
 import os
 import uuid
 from pathlib import Path
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Path as PathParam
@@ -12,6 +13,7 @@ from app.core.orchestrator import nexus
 from app.core.database import engine, is_sqlite
 from app.core.logging_config import configure_logging
 from app.core.metrics import metrics
+from app.core.monitoring import monitoring
 from app.core.request_observability import install_observability
 from app.core.decision_engine import decision_engine
 from app.core.memory import memory
@@ -72,7 +74,17 @@ def format_knowledge_context(items, max_chars=MAX_KNOWLEDGE_CONTEXT_CHARS):
     return "\n\n".join(parts)
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    monitoring.start()  # per-worker metrics flusher and alert evaluator; a no-op when NEXUS_METRICS_PERSISTENCE=false
+    try:
+        yield
+    finally:
+        monitoring.stop()  # final flush so a graceful shutdown loses no metrics
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="NEXUS AI",
     description=(
         "Unified Enterprise, Personal Assistant, "

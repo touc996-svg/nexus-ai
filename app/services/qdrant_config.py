@@ -19,6 +19,8 @@ from urllib.parse import urlsplit
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
+from app.core.metrics import metrics
+
 logger = logging.getLogger("nexus.qdrant")
 DEFAULT_URL = "http://localhost:6333"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -114,6 +116,7 @@ class ResilientQdrant:
                     raise
                 if attempt == self._max_retries:
                     logger.warning("qdrant_unavailable op=%s error_type=%s", name, type(exc).__name__)
+                    metrics.inc("qdrant_unavailable_total")
                     raise QdrantUnavailable("Qdrant is unavailable") from None  # `from None`: no URL or key in the chain
                 time.sleep(self._backoff * (2 ** attempt))
         raise AssertionError("unreachable")  # pragma: no cover

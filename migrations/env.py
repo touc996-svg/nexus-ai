@@ -6,6 +6,8 @@ from alembic import context
 from sqlalchemy import create_engine
 
 import app.core.activity  # noqa: F401  (registers AgentActivity)
+import app.core.alerts  # noqa: F401  (registers AlertStateRow, AlertEventRow)
+import app.core.metrics_store  # noqa: F401  (registers the metric_* tables)
 import app.core.memory  # noqa: F401  (registers MemoryMessage, UserProfile)
 import app.security.keystore  # noqa: F401  (registers ApiKey)
 from app.core.database import _ENGINE_OPTIONS, _URL, Base

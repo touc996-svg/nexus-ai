@@ -29,6 +29,8 @@ alembic check            # "No new upgrade operations detected" when models and 
 ```
 
 Run migrations as a deploy step before starting the new app version, using the same `DATABASE_URL` as the server.
+Revision `0002` adds the monitoring tables (`metric_*`, `alert_*`); on PostgreSQL they are **not** created at start-up, so
+until `alembic upgrade head` has run, metric flushes fail and are logged as `metrics_flush_failed` (the API keeps serving).
 `python -m app.security.keystore` prints which database (password hidden) it is changing.
 
 **Moving existing SQLite data:** there is no automated copy. Memory, profiles, activity and stored keys in `nexus.db` are

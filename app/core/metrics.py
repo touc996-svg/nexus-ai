@@ -3,7 +3,10 @@
 Counters and latency histograms are keyed by a fixed metric name and a small set of label values that callers
 sanitise (route templates, status classes, agent names from a fixed list, error *type* names). The number of distinct
 series is capped; past the cap new series fold into one ``overflow`` series per metric name, so memory cannot grow with traffic.
-State lives in this process only: it resets on restart and is not shared across workers or instances.
+This object is the per-process *recorder*. Every update is also kept as a pending, time-windowed delta; the persistence
+layer (``app/core/metrics_store.py`` and ``app/core/monitoring.py``) drains those deltas into the SQL database about every
+10 seconds and at graceful shutdown, so totals survive restarts and aggregate across workers. Without that layer the
+process-local snapshot below is all there is.
 """
 
 import re
@@ -34,13 +37,29 @@ LABELS = {
     "rag_chunks_dropped_total": (),
     "agent_runs_total": ("agent", "status"),
     "agent_failures_total": ("agent", "error_type"),
+    "http_throttled_total": ("route", "status"),
+    "qdrant_unavailable_total": (),
+    "alerts_fired_total": ("rule",),
+    "alerts_resolved_total": ("rule",),
+    "metrics_flush_failures_total": (),
+    "metrics_flush_dropped_total": (),
 }
+THROTTLE_STATUSES = {429, 503}
+WINDOW_SECONDS = 60
+MAX_PENDING_PER_SERIES_WINDOWS = 30  # bounds the unflushed backlog if the database stays unreachable
 HISTOGRAMS = {
     "http_request_duration_ms": ("route",),
     "llm_duration_ms": ("model",),
     "rag_duration_ms": ("op",),
     "agent_duration_ms": ("agent",),
 }
+
+
+def bucket_index(value_ms: float) -> int:
+    for index, bound in enumerate(BUCKETS_MS):
+        if value_ms <= bound:
+            return index
+    return len(BUCKETS_MS)
 
 
 def safe_label(value, limit=80):
@@ -53,12 +72,23 @@ def safe_error_type(value):
 
 
 class Metrics:
-    def __init__(self, max_series: int = MAX_SERIES):
+    def __init__(self, max_series: int = MAX_SERIES, clock=time.time):
         self._lock = threading.Lock()
         self._max_series = max_series
+        self._clock = clock
         self._counters: dict[tuple, int] = {}
         self._histograms: dict[tuple, dict] = {}
+        # Deltas not yet persisted, keyed by (window_start, series key). Cleared by drain_pending().
+        self._pending_counters: dict[tuple, int] = {}
+        self._pending_hist: dict[tuple, dict] = {}
+        self._pending_cap = max_series * MAX_PENDING_PER_SERIES_WINDOWS
         self._started = time.time()
+
+    def _window(self) -> int:
+        return int(self._clock() // WINDOW_SECONDS * WINDOW_SECONDS)
+
+    def _pending_full(self, table, pending_key) -> bool:
+        return pending_key not in table and len(self._pending_counters) + len(self._pending_hist) >= self._pending_cap
 
     def _series_key(self, name, labels, table):
         key = (name, *labels)
@@ -74,6 +104,11 @@ class Metrics:
         with self._lock:
             key = self._series_key(name, labels, self._counters)
             self._counters[key] = self._counters.get(key, 0) + amount
+            pending_key = (self._window(), key)
+            if self._pending_full(self._pending_counters, pending_key):
+                self._dropped_locked()
+            else:
+                self._pending_counters[pending_key] = self._pending_counters.get(pending_key, 0) + amount
 
     def observe(self, name: str, value_ms: float, *labels) -> None:
         if name not in HISTOGRAMS or len(labels) != len(HISTOGRAMS[name]):
@@ -81,14 +116,35 @@ class Metrics:
         with self._lock:
             key = self._series_key(name, labels, self._histograms)
             hist = self._histograms.setdefault(key, {"count": 0, "sum": 0.0, "buckets": [0] * (len(BUCKETS_MS) + 1)})
+            index = bucket_index(value_ms)
             hist["count"] += 1
             hist["sum"] += value_ms
-            for index, bound in enumerate(BUCKETS_MS):
-                if value_ms <= bound:
-                    hist["buckets"][index] += 1
-                    break
+            hist["buckets"][index] += 1
+            pending_key = (self._window(), key)
+            if self._pending_full(self._pending_hist, pending_key):
+                self._dropped_locked()
             else:
-                hist["buckets"][-1] += 1
+                pending = self._pending_hist.setdefault(
+                    pending_key, {"count": 0, "sum": 0.0, "buckets": [0] * (len(BUCKETS_MS) + 1)})
+                pending["count"] += 1
+                pending["sum"] += value_ms
+                pending["buckets"][index] += 1
+
+    def _dropped_locked(self) -> None:
+        key = (self._window(), ("metrics_flush_dropped_total",))
+        self._counters[("metrics_flush_dropped_total",)] = self._counters.get(("metrics_flush_dropped_total",), 0) + 1
+        self._pending_counters[key] = self._pending_counters.get(key, 0) + 1  # one tiny fixed series may exceed the cap
+
+    def drain_pending(self) -> tuple[dict, dict]:
+        """Atomically take the unpersisted deltas. Returns ``(counters, histograms)`` keyed by ``(window, series key)``."""
+        with self._lock:
+            counters, hists = self._pending_counters, self._pending_hist
+            self._pending_counters, self._pending_hist = {}, {}
+        return counters, hists
+
+    def pending_size(self) -> int:
+        with self._lock:
+            return len(self._pending_counters) + len(self._pending_hist)
 
     # ---- typed recorders: they sanitise every label --------------------------------------------------------------
 
@@ -99,6 +155,8 @@ class Metrics:
         self.observe("http_request_duration_ms", duration_ms, route)
         if int(status) >= 500:
             self.inc("http_errors_total", route)
+        if int(status) in THROTTLE_STATUSES:
+            self.inc("http_throttled_total", route, str(int(status)))
 
     def record_llm(self, model, ok, duration_ms, prompt_tokens=None, completion_tokens=None, error_type=None):
         model = safe_label(model, 60)
@@ -173,6 +231,8 @@ class Metrics:
         with self._lock:
             self._counters.clear()
             self._histograms.clear()
+            self._pending_counters.clear()
+            self._pending_hist.clear()
 
 
 class _RagTimer:

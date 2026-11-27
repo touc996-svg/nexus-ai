@@ -13,9 +13,11 @@ Pool settings (PostgreSQL only): ``DB_POOL_SIZE`` (5), ``DB_MAX_OVERFLOW`` (5), 
 """
 
 import os
+import time
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DEFAULT_DATABASE_URL = "sqlite:///./nexus.db"
@@ -116,5 +118,15 @@ def auto_create_enabled() -> bool:
 
 
 def init_db():
-    if auto_create_enabled():
-        Base.metadata.create_all(bind=engine)
+    if not auto_create_enabled():
+        return
+    # Several workers starting together can each see a table as missing and then collide on CREATE TABLE. The loser's
+    # error is harmless: the table exists now, so a second pass (which re-checks) succeeds.
+    for attempt in range(4):
+        try:
+            Base.metadata.create_all(bind=engine)
+            return
+        except (OperationalError, ProgrammingError) as exc:
+            if "already exists" not in str(exc).lower() or attempt == 3:
+                raise
+            time.sleep(0.05 * (attempt + 1))
