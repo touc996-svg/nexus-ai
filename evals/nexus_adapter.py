@@ -19,7 +19,6 @@ import uuid
 from time import perf_counter
 
 import hashlib
-from pathlib import Path
 
 from . import ollama
 from .ollama import CacheMiss, JsonCache, _key, fingerprint
@@ -32,11 +31,33 @@ EVAL_COLLECTION_PREFIX = "nexus_eval_"
 PRODUCTION_COLLECTION = "nexus_knowledge"
 
 
-def production_rag_sha() -> str:
-    """Hash of the production ``rag.py``: any change to the real embedding or retrieval code invalidates replays."""
-    import app.services.rag as module
+# The members of ``NexusRAG`` that determine a vector or a retrieval result. Their source text is what the replay cache is
+# keyed on. Client construction, health checks, file extraction and other plumbing are deliberately not in this list, so
+# changing how Qdrant is reached cannot make a recorded vector stale, while any change to embedding, chunking, ingestion,
+# search, the tenant filter or collection/distance set-up still invalidates every replay (and the gate then fails closed).
+HASHED_MEMBERS = ("embed", "chunk_text", "ingest_text", "search", "_source_id", "_user_filter", "_ensure_collection")
 
-    return hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest()[:16]
+
+def members_sha(rag_class) -> str:
+    import inspect
+
+    parts = [f"{name}\n{inspect.getsource(getattr(rag_class, name))}" for name in HASHED_MEMBERS]
+    parts.append(f"COLLECTION={rag_class.COLLECTION};DEFAULT_VECTOR_SIZE={rag_class.DEFAULT_VECTOR_SIZE}")
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:16]
+
+
+def production_rag_sha() -> str:
+    """Hash of the production embedding/retrieval code (see HASHED_MEMBERS)."""
+    from app.services.rag import NexusRAG
+
+    return members_sha(NexusRAG)
+
+
+# Before this narrowing the key was the sha256 of the whole ``rag.py``. Vectors recorded under that key were produced by
+# members whose combined hash is PRE_NARROWING_MEMBERS_SHA (computed from that exact file). They are adopted, once and
+# only while the live members hash to the same value, so a change to any hashed member still forces a re-record.
+PRE_NARROWING_RAG_SHA = "b8970ae55fb7990e"
+PRE_NARROWING_MEMBERS_SHA = "45744ff550b0eb8d"
 
 
 class ReplayedEmbedding:
@@ -52,7 +73,13 @@ class ReplayedEmbedding:
 
     def __init__(self, real_embed, model: str, dimension: int = 768):
         self.real, self.model = real_embed, model
-        self.config = fingerprint("nexus-embed", model, dimension, self.CONTRACT, production_rag_sha())
+        live_sha = production_rag_sha()
+        self.config = fingerprint("nexus-embed", model, dimension, self.CONTRACT, live_sha)
+        # Vectors recorded under the whole-file hash are adopted only while the hashed members are provably unchanged.
+        self.previous_config = (
+            fingerprint("nexus-embed", model, dimension, self.CONTRACT, PRE_NARROWING_RAG_SHA)
+            if live_sha == PRE_NARROWING_MEMBERS_SHA else None
+        )
         self.cache = JsonCache("nexus_embeddings.json")
         self.recorded_ms = 0.0  # latency recorded when the vector was first computed live
         self.wall_ms = 0.0      # time actually spent in this call now
@@ -61,6 +88,10 @@ class ReplayedEmbedding:
         started = perf_counter()
         key = _key("nexus-embed", self.config, text)
         hit = self.cache.get_or_adopt(key, _key(self.model, "nexus-embed", text), self.config in LEGACY_EMBED_CONFIGS)
+        if hit is None and self.previous_config is not None:
+            hit = self.cache.data.get(_key("nexus-embed", self.previous_config, text))
+            if hit is not None:
+                self.cache.put(key, hit)
         if hit is None:
             if ollama.INFERENCE_BLOCKED:
                 raise CacheMiss("embedding not cached and model inference is blocked in this process")

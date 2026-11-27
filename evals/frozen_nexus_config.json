@@ -28,7 +28,7 @@
     "distance": "cosine",
     "embedding_dimension": 768,
     "embedding_model": "nomic-embed-text",
-    "rag_py_sha": "b8970ae55fb7990e",
+    "rag_py_sha": "45744ff550b0eb8d",
     "score_threshold": 0.15,
     "tenant_filter": "user_id (unique per evaluation run)"
   },

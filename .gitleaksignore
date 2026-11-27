@@ -1,0 +1,4 @@
+# Reviewed false positive. Commit b6d8a13 added a CI-only throwaway API key ("ci-only-not-a-secret-key", used only to
+# start a disposable qdrant service container in CI) in a curl header; gitleaks' curl-auth-header rule flagged it. The next
+# commit removes the header (Qdrant's /readyz needs no key). No real credential was involved.
+b6d8a13b413b3b09d9ebbd77fef7f342f8dd2ea9:.github/workflows/nexus-ci.yml:curl-auth-header:129
