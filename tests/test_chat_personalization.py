@@ -65,6 +65,7 @@ class TestChatPersonalizationFlow(unittest.TestCase):
         mock_agent.assert_called_once_with(
             "personal",
             "Help me plan my career",
+            internal=False,
             user_profile=profile
         )
 
@@ -73,6 +74,45 @@ class TestChatPersonalizationFlow(unittest.TestCase):
             result["response"],
             "Here is your personalized plan."
         )
+
+
+class TestChatRetrievedContextLength(unittest.TestCase):
+    """Regression: a max-length message plus retrieved context must not be rejected."""
+
+    def test_long_message_with_retrieved_context_reaches_the_agent(self):
+        seen = {}
+
+        class StubAgent:
+            def run(self, message):
+                seen["length"] = len(message)
+                return {"response": "ok", "status": "success"}
+
+        understanding = {
+            "intent_type": "agent_task",
+            "agent": "enterprise",
+            "response": "",
+            "clarifying_question": None,
+            "understood_request": "analysis",
+        }
+        retrieved = [{"source": "doc.txt", "text": "x" * 9000}]
+
+        with (
+            patch.object(main, "DEMO_MODE", False),
+            patch.object(main.memory, "get_history", return_value=[]),
+            patch.object(main.memory, "get_profile", return_value={"profile": {}}),
+            patch.object(main.memory, "add_message"),
+            patch.object(main.rag, "search", return_value=retrieved),
+            patch.object(main.conversation_engine, "understand", return_value=understanding),
+            patch.dict(main.nexus.agents, {"enterprise": StubAgent()}),
+        ):
+            result = main.chat(
+                main.ChatRequest(message="a" * 5000, session_id="ctx-len", user_id="ctx-len-user"),
+                principal=UNAUTHENTICATED,
+            )
+
+        self.assertEqual(result["status"], "completed", result.get("response"))
+        self.assertGreater(seen["length"], 5000)
+        self.assertLessEqual(seen["length"], 15000)
 
 
 if __name__ == "__main__":

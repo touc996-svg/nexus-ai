@@ -409,9 +409,13 @@ def chat(request: ChatRequest, principal: Principal = Depends(get_principal)):
 
     if intent == "agent_task":
         agent_name = understanding["agent"]
+        # The user message is capped at 5,000 characters by the request model;
+        # appended retrieved context is bounded separately, so validate the
+        # combined text against the internal-context limit, not the user limit.
         result = nexus.run_agent(
             agent_name,
             agent_message,
+            internal=bool(bounded_knowledge),
             user_profile=user_profile
         )
 
