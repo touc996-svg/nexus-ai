@@ -192,7 +192,7 @@ def test_a_memory_hungry_worker_is_stopped_by_the_address_space_limit(tmp_path, 
 
 
 def test_a_crashing_worker_is_handled(tmp_path, monkeypatch):
-    _hostile(tmp_path, monkeypatch, "import os\nos.abort()\n")
+    _hostile(tmp_path, monkeypatch, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n")
     with pytest.raises(ExtractionError, match="safely"):
         extract_document_text(_write(tmp_path, "a.txt", b"x"), LIMITS)
 
