@@ -1,0 +1,67 @@
+# Local production-like reverse proxy. TLS uses Caddy's own local CA (`tls internal`); nothing here is a real domain.
+# Request details in Caddy's logs must never carry credentials. The same filter is applied to the access log and to the
+# global default logger, which also receives Caddy's error log (for example "no upstreams available"); that one logs the
+# full request, headers included, and leaked X-Api-Key before the global filter existed.
+(redacted_json) {
+	format filter {
+		wrap json
+		fields {
+			request>headers>Authorization delete
+			request>headers>X-Api-Key delete
+			request>headers>Cookie delete
+			request>headers>Proxy-Authorization delete
+			request>uri query {
+				delete token
+				delete key
+				delete api_key
+				delete access_token
+			}
+		}
+	}
+}
+
+{
+	admin off
+	auto_https disable_redirects
+	log {
+		output stdout
+		import redacted_json
+	}
+}
+
+localhost:443 {
+	tls internal
+
+	encode zstd gzip
+	request_body {
+		max_size 26MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	reverse_proxy api:8010 {
+		# Liveness only: with one upstream, a readiness probe (which includes the model server) would make Caddy answer 503
+		# for every request while a dependency is down. Orchestrators should use /health/ready.
+		health_uri /health/live
+		health_interval 10s
+		health_timeout 3s
+		# The probe would otherwise carry "Host: api:8010", which the application's host allow-list (rightly) rejects.
+		health_headers {
+			Host localhost
+		}
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 130s
+		}
+		# Caddy replaces any client-supplied X-Forwarded-For (no trusted proxies are configured), so the application sees
+		# exactly one hop: NEXUS_TRUSTED_PROXY_HOPS=1.
+	}
+
+	log {
+		output stdout
+		import redacted_json
+	}
+}

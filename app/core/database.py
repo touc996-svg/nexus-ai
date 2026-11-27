@@ -23,6 +23,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 DEFAULT_DATABASE_URL = "sqlite:///./nexus.db"
 _LOCAL_HOSTS = {"", "localhost", "127.0.0.1", "::1"}
 _SAFE_SSLMODES = {"require", "verify-ca", "verify-full"}
+PRIVATE_HOSTS_ENV = "NEXUS_PRIVATE_NETWORK_HOSTS"
 _TRUTHY = {"1", "true", "yes", "on"}
 
 
@@ -37,6 +38,13 @@ def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     if not minimum <= value <= maximum:
         raise ValueError(f"{name} must be between {minimum} and {maximum}")
     return value
+
+
+def private_network_hosts() -> set[str]:
+    """Host names that live on an isolated private network (for example a Docker Compose ``internal`` network service
+    called ``db``), listed explicitly in ``NEXUS_PRIVATE_NETWORK_HOSTS``. They are treated like localhost for the TLS rule.
+    Empty by default; never put a public or managed-service host name here."""
+    return {host.strip().lower() for host in os.getenv(PRIVATE_HOSTS_ENV, "").split(",") if host.strip()}
 
 
 def normalize_database_url(raw: str) -> URL:
@@ -67,7 +75,7 @@ def build_engine_options(url: URL) -> tuple[URL, dict]:
     # Neon-style parameters that libpq understands but psycopg's URL parser does not need to receive twice.
     channel_binding = query.pop("channel_binding", None)
     sslmode = query.pop("sslmode", None)
-    remote = (url.host or "") not in _LOCAL_HOSTS
+    remote = (url.host or "").lower() not in _LOCAL_HOSTS | private_network_hosts()
     if sslmode is None and remote:
         sslmode = "require"
     if remote and sslmode not in _SAFE_SSLMODES:

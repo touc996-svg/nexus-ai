@@ -110,3 +110,20 @@ def test_init_db_still_raises_real_errors(monkeypatch):
 
     with pytest.raises(OperationalError):
         database.init_db()
+
+
+def test_private_network_hosts_are_an_explicit_narrow_allow_list(monkeypatch):
+    from app.core.database import build_engine_options, normalize_database_url
+
+    url = normalize_database_url("postgresql://u:p@db:5432/nexus")
+    monkeypatch.delenv("NEXUS_PRIVATE_NETWORK_HOSTS", raising=False)
+    assert build_engine_options(url)[1]["connect_args"]["sslmode"] == "require"  # a non-local host still gets TLS
+    monkeypatch.setenv("NEXUS_PRIVATE_NETWORK_HOSTS", "db")
+    assert "sslmode" not in build_engine_options(url)[1]["connect_args"]  # listed: private network, no TLS forced
+    other = normalize_database_url("postgresql://u:p@ep-x.neon.tech/nexus")
+    assert build_engine_options(other)[1]["connect_args"]["sslmode"] == "require"  # public hosts are unaffected
+    bad = normalize_database_url("postgresql://u:p@ep-x.neon.tech/nexus?sslmode=disable")
+    import pytest
+
+    with pytest.raises(ValueError):
+        build_engine_options(bad)

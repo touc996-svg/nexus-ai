@@ -22,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 
 from app.security.identity import OPERATOR, SYSTEM_USER, Principal
@@ -441,5 +442,10 @@ def install_security(app, key_store=None, jwt_verifier=None) -> None:
         allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
         max_age=600,
     )
+    # Host-header allow-list (NEXUS_ALLOWED_HOSTS, comma separated). Unset keeps the previous behaviour (any host);
+    # production start-up requires it (app/core/production_check.py). A request for another host gets 400.
+    allowed_hosts = [h.strip() for h in os.getenv("NEXUS_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    if allowed_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
     # Added after CORS so it wraps everything installed above it; installed outermost relative to the security middleware.
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)

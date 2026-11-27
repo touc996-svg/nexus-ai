@@ -169,3 +169,20 @@ def test_evaluation_adapter_never_reads_qdrant_settings(monkeypatch):
 
     source = Path(nexus_adapter.__file__).read_text()
     assert "QDRANT_API_KEY" not in source and "QDRANT_URL" not in source.replace("never reads ``QDRANT_URL``", "")
+
+
+def test_private_network_qdrant_host_may_use_http_but_public_may_not(monkeypatch):
+    import pytest
+
+    from app.services.qdrant_config import load_qdrant_settings
+
+    monkeypatch.delenv("QDRANT_API_KEY", raising=False)
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant:6333")
+    monkeypatch.delenv("NEXUS_PRIVATE_NETWORK_HOSTS", raising=False)
+    with pytest.raises(ValueError):
+        load_qdrant_settings()
+    monkeypatch.setenv("NEXUS_PRIVATE_NETWORK_HOSTS", "qdrant")
+    assert load_qdrant_settings().is_local
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant.example.com:6333")
+    with pytest.raises(ValueError):
+        load_qdrant_settings()

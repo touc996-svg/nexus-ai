@@ -8,3 +8,7 @@ __pycache__/
 .pytest_cache/
 *.bak*
 .DS_Store
+deploy/
+docs/
+tests/
+scripts/

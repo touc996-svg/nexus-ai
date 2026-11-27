@@ -36,3 +36,7 @@ evals/cache/*.lock
 # Local editing backups
 *.bak
 *.bak.*
+
+# Local production-like stack: throwaway secrets and local environment overrides
+deploy/secrets/
+deploy/.env
