@@ -8,6 +8,7 @@ request bodies, API keys, authorization headers, or user prompts.
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import logging
 import os
 import threading
@@ -49,6 +50,7 @@ class SecuritySettings:
     keystore_enabled: bool = False
     identity_rate_limit_per_minute: int = 120
     jwt: JwtSettings | None = None
+    trusted_proxy_hops: int = 0
 
 
 MIN_USER_KEY_LENGTH = 24
@@ -134,6 +136,12 @@ def load_security_settings() -> SecuritySettings:
         raise ValueError("NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE must be at least 1")
     if max_request_bytes < 1024:
         raise ValueError("NEXUS_MAX_REQUEST_BYTES must be at least 1024")
+    try:
+        trusted_proxy_hops = int(os.getenv("NEXUS_TRUSTED_PROXY_HOPS", "0").strip() or "0")
+    except ValueError as exc:
+        raise ValueError("NEXUS_TRUSTED_PROXY_HOPS must be an integer") from exc
+    if not 0 <= trusted_proxy_hops <= 10:
+        raise ValueError("NEXUS_TRUSTED_PROXY_HOPS must be between 0 and 10")
 
     return SecuritySettings(
         demo_mode=demo_mode,
@@ -147,7 +155,50 @@ def load_security_settings() -> SecuritySettings:
         keystore_enabled=keystore_enabled,
         identity_rate_limit_per_minute=identity_rate_limit,
         jwt=jwt_settings,
+        trusted_proxy_hops=trusted_proxy_hops,
     )
+
+
+def _parse_forwarded_entry(raw: str) -> str | None:
+    """Return the normalised IP in one X-Forwarded-For entry (optionally with a port), or None if it is not an IP."""
+    value = raw.strip()
+    if not value or len(value) > 64:
+        return None
+    candidates = [value]
+    if value.startswith("[") and "]" in value:  # [v6] or [v6]:port
+        candidates.append(value[1:value.index("]")])
+    elif value.count(":") == 1:  # v4:port
+        candidates.append(value.split(":", 1)[0])
+    for candidate in candidates:
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+    return None
+
+
+def resolve_client_address(request: Request, trusted_hops: int) -> str:
+    """The address the per-address rate limiter should key on.
+
+    ``trusted_hops`` is how many reverse proxies, all under your control, sit in front of the application and each
+    append the address they received the request from to ``X-Forwarded-For``. With 0 (the default) the header is never
+    read and the socket peer is used. With N, the entry N places from the **right** is the client as seen by the first
+    trusted proxy; entries further left are client-supplied and ignored, so a spoofed prefix cannot change the result.
+    Any problem (header missing, fewer entries than hops, an unparsable entry on the trusted side) falls back to the
+    socket peer rather than to a value an attacker chose.
+    """
+    peer = request.client.host if request.client else "unknown"
+    if trusted_hops <= 0:
+        return peer
+    entries: list[str] = []
+    for header in request.headers.getlist("x-forwarded-for"):
+        entries.extend(part for part in header.split(","))
+    if len(entries) < trusted_hops:
+        return peer
+    selected = [_parse_forwarded_entry(entry) for entry in entries[-trusted_hops:]]
+    if any(item is None for item in selected):
+        return peer
+    return selected[0]
 
 
 class SlidingWindowRateLimiter:
@@ -219,7 +270,7 @@ def install_security(app, key_store=None, jwt_verifier=None) -> None:
         started = time.perf_counter()
         request_id = uuid.uuid4().hex
         path = request.url.path
-        client_host = request.client.host if request.client else "unknown"
+        client_host = resolve_client_address(request, settings.trusted_proxy_hops)
 
         def secure_headers(response):
             response.headers["X-Request-ID"] = request_id
