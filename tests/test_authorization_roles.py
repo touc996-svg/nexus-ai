@@ -48,6 +48,7 @@ ADMIN = {  # operator credentials only
     ("POST", "/integrations/aegis-x/risk/explain"),
     ("POST", "/integrations/aegis-x/recommendations/text"),
     ("GET", "/system/llm-health"),
+    ("GET", "/system/metrics"),
     ("GET", "/system/rag-health"),
     ("GET", "/system/memory-health"),
     ("GET", "/system/evaluation/latest"),

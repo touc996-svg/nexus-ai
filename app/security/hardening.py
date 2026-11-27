@@ -269,7 +269,7 @@ def install_security(app, key_store=None, jwt_verifier=None) -> None:
     @app.middleware("http")
     async def nexus_security_middleware(request: Request, call_next):
         started = time.perf_counter()
-        request_id = uuid.uuid4().hex
+        request_id = getattr(request.state, "request_id", None) or uuid.uuid4().hex
         path = request.url.path
         client_host = resolve_client_address(request, settings.trusted_proxy_hops)
 
@@ -357,7 +357,7 @@ def install_security(app, key_store=None, jwt_verifier=None) -> None:
         try:
             response = await call_next(request)
         except Exception:
-            logger.exception("request_failed request_id=%s path=%s", request_id, path)
+            logger.exception("request_failed request_id=%s", request_id)
             raise
 
         response.headers["X-RateLimit-Limit"] = str(settings.rate_limit_per_minute)
@@ -365,8 +365,8 @@ def install_security(app, key_store=None, jwt_verifier=None) -> None:
         response = secure_headers(response)
         duration_ms = round((time.perf_counter() - started) * 1000, 2)
         logger.info(
-            "request_completed request_id=%s method=%s path=%s status=%s duration_ms=%s",
-            request_id, request.method, path, response.status_code, duration_ms,
+            "request_completed request_id=%s method=%s status=%s duration_ms=%s",
+            request_id, request.method, response.status_code, duration_ms,
         )
         return response
 

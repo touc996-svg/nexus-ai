@@ -8,6 +8,7 @@ from time import perf_counter
 from app.agents.enterprise_agent import enterprise_agent
 from app.agents.personal_agent import personal_agent
 from app.agents.cybersecurity_agent import cybersecurity_agent
+from app.core.metrics import metrics
 from app.security.content_safety import neutralize_untrusted, scrub_model_output
 from app.security.guardrails import guardrails
 from app.core.decision_engine import decision_engine
@@ -38,6 +39,10 @@ class NexusOrchestrator:
 
     def _record_activity(self, *args):
         # Metrics persistence must never turn a successful AI call into a failure.
+        try:
+            metrics.record_agent(*args[:4])
+        except Exception:  # metrics must never affect an agent result
+            pass
         try:
             self.activity_sink.record(*args)
         except Exception:

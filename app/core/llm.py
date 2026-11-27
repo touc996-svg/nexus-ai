@@ -157,3 +157,8 @@ else:
         timeout=OLLAMA_TIMEOUT_SECONDS,
         max_retries=int(os.getenv("OLLAMA_MAX_RETRIES", "1"))
     )
+
+# Counts, latency and token usage only; message content is never read (app/core/metrics.py).
+from app.core.metrics import instrument_llm_client  # noqa: E402
+
+client = instrument_llm_client(client)

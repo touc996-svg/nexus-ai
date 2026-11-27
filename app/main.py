@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field
 
 from app.core.orchestrator import nexus
 from app.core.database import engine, is_sqlite
+from app.core.logging_config import configure_logging
+from app.core.metrics import metrics
+from app.core.request_observability import install_observability
 from app.core.decision_engine import decision_engine
 from app.core.memory import memory
 from app.core.router import router
@@ -23,6 +26,7 @@ DEMO_MODE = os.getenv("NEXUS_DEMO_MODE", "false").lower() in {
 }
 MAX_KNOWLEDGE_CONTEXT_CHARS = 6000
 logger = logging.getLogger("nexus.api")
+configure_logging()
 
 
 def _require_persistent_storage():
@@ -52,6 +56,7 @@ def format_knowledge_context(items, max_chars=MAX_KNOWLEDGE_CONTEXT_CHARS):
         if injection_markers:
             # Indirect prompt-injection heuristic: keep instruction-like chunks out of the model context.
             logger.warning("rag_chunk_dropped reason=injection_markers markers=%s", ",".join(injection_markers))
+            metrics.record_chunks_dropped()
             continue
         source = sanitize_retrieved_text(str(item.get("source") or f"result-{index}"))[0][:120]
         heading = f"[Reference {index} | source: {source}]\n"
@@ -372,11 +377,13 @@ def chat(request: ChatRequest, principal: Principal = Depends(get_principal)):
 
     knowledge_context = []
     try:
-        knowledge_context = rag.search(
-            query=request.message,
-            user_id=effective_user_id or "system",
-            limit=5
-        )
+        with metrics.rag_timer("search") as timer:
+            knowledge_context = rag.search(
+                query=request.message,
+                user_id=effective_user_id or "system",
+                limit=5
+            )
+            timer.results = len(knowledge_context)
     except Exception as exc:
         # Do not log user IDs, prompts, document text, or retrieved content.
         logger.warning("rag_retrieval_unavailable error_type=%s", type(exc).__name__)
@@ -629,6 +636,7 @@ from app.api.health import router as health_router
 from app.security.hardening import install_security
 app.include_router(health_router)
 install_security(app)
+install_observability(app)  # outermost: wraps the security middleware so 401 and 429 are measured too
 
 from app.api.aegis_x import router as aegis_x_router
 app.include_router(aegis_x_router)
