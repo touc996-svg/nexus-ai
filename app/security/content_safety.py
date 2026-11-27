@@ -25,9 +25,10 @@ _REFERENCE_HEADER = re.compile(r"\[\s*Reference\s+\d+\s*\|", re.IGNORECASE)
 _INJECTION_PATTERNS = tuple(
     (name, re.compile(pattern, re.IGNORECASE))
     for name, pattern in (
-        ("override_instructions",
-         r"\b(ignore|disregard|forget|override|bypass)\b[^.\n]{0,40}\b(previous|prior|above|earlier|all|any|system|your)\b"
-         r"[^.\n]{0,30}\b(instructions?|prompts?|rules?|guidelines?|directives?)\b"),
+        ("override_instructions", (
+            r"\b(ignore|disregard|forget|override|bypass)\b[^.\n]{0,40}\b(previous|prior|above|earlier|all|any|system|your)\b"
+            r"[^.\n]{0,30}\b(instructions?|prompts?|rules?|guidelines?|directives?)\b"
+        )),
         ("role_reassignment", r"\b(you are now|from now on,? you|act as|pretend to be)\b[^.\n]{0,60}\b(assistant|ai|model|admin|developer|dan|system)\b"),
         ("reveal_prompt", r"\b(reveal|show|print|repeat|output|leak)\b[^.\n]{0,40}\b(system prompt|hidden prompt|initial instructions|your instructions)\b"),
         ("fake_system_turn", r"(^|\n)\s*(system|assistant)\s*:\s*\S"),
