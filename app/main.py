@@ -13,6 +13,7 @@ from app.core.memory import memory
 from app.core.router import router
 from app.core.activity import activity_logger
 from app.core.conversation import conversation_engine
+from app.security.content_safety import sanitize_retrieved_text
 from app.security.identity import Principal, get_principal, require_admin, resolve_user_id, scope_session_id
 
 
@@ -44,10 +45,14 @@ def format_knowledge_context(items, max_chars=MAX_KNOWLEDGE_CONTEXT_CHARS):
             break
         if not isinstance(item, dict):
             continue
-        snippet = str(item.get("text") or "").strip()
-        if not snippet:
+        snippet, injection_markers = sanitize_retrieved_text(str(item.get("text") or "").strip())
+        if not snippet.strip():
             continue
-        source = str(item.get("source") or f"result-{index}")[:120]
+        if injection_markers:
+            # Indirect prompt-injection heuristic: keep instruction-like chunks out of the model context.
+            logger.warning("rag_chunk_dropped reason=injection_markers markers=%s", ",".join(injection_markers))
+            continue
+        source = sanitize_retrieved_text(str(item.get("source") or f"result-{index}"))[0][:120]
         heading = f"[Reference {index} | source: {source}]\n"
         available = remaining - len(heading)
         if available <= 0:

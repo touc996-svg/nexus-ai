@@ -8,6 +8,7 @@ from time import perf_counter
 from app.agents.enterprise_agent import enterprise_agent
 from app.agents.personal_agent import personal_agent
 from app.agents.cybersecurity_agent import cybersecurity_agent
+from app.security.content_safety import neutralize_untrusted, scrub_model_output
 from app.security.guardrails import guardrails
 from app.core.decision_engine import decision_engine
 from app.core.activity import activity_logger
@@ -113,6 +114,10 @@ class NexusOrchestrator:
                     "status": "failed",
                 }
 
+            for key in ("response", "output"):
+                if isinstance(result.get(key), str):
+                    result[key] = scrub_model_output(result[key])
+
             failed = self._is_failed(result)
             error_type = result.get("error_type") or result.get("error") if failed else None
             self._record_activity(
@@ -165,7 +170,7 @@ class NexusOrchestrator:
 
     @staticmethod
     def _untrusted_context(label, content, limit):
-        text = (content or "Unavailable.").strip()[:limit]
+        text = neutralize_untrusted((content or "Unavailable.").strip(), limit)
         return (
             f"<untrusted_agent_output source=\"{label}\">\n{text}\n"
             f"</untrusted_agent_output>"
