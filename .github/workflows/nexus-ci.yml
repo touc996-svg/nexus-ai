@@ -130,3 +130,23 @@ jobs:
           done
       - name: Run Qdrant server tests
         run: python -m pytest -q tests/test_qdrant_server.py tests/test_qdrant_config.py tests/test_nexus_adapter.py -rs
+
+  security-tests:
+    name: Security test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXUS_DEMO_MODE: "true"
+      APP_ENV: test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --require-hashes -r requirements.txt
+      - name: Run HTTP-level security tests (skipped cases are NOT VERIFIED items; see docs/SECURITY_TEST_REPORT.md)
+        run: python -m pytest tests/security -q -rs

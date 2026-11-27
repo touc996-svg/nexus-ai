@@ -65,18 +65,20 @@ class NexusMemory:
             init_db()
 
     @staticmethod
-    def _validate_identifier(value, field_name):
+    def _validate_identifier(value, field_name, max_length=128):
         if (
             not isinstance(value, str)
             or not value.strip()
-            or len(value) > 128
+            or len(value) > max_length
             or any(ord(char) < 32 for char in value)
         ):
             raise ValueError(f"{field_name} must contain 1 to 128 printable characters")
 
     @classmethod
     def _validate_session_id(cls, session_id):
-        cls._validate_identifier(session_id, "session_id")
+        # A scoped caller's session is stored as "<24 hex>:<client id>" (up to 128 characters), so the stored id can be
+        # longer than the 128-character client id; the API bounds the client part separately.
+        cls._validate_identifier(session_id, "session_id", max_length=160)
 
     @classmethod
     def _validate_user_id(cls, user_id):

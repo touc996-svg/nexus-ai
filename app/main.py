@@ -2,8 +2,9 @@ import logging
 import os
 import uuid
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Path as PathParam
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -163,7 +164,7 @@ def memory_status():
 # SAVE MEMORY
 
 @app.post("/memory/{session_id}")
-def save_memory(session_id: str, request: MemoryRequest, principal: Principal = Depends(get_principal)):
+def save_memory(session_id: Annotated[str, PathParam(min_length=1, max_length=128)], request: MemoryRequest, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
     storage_session = scope_session_id(principal, session_id)
 
@@ -189,7 +190,7 @@ def save_memory(session_id: str, request: MemoryRequest, principal: Principal = 
 # RETRIEVE MEMORY
 
 @app.get("/memory/{session_id}")
-def get_memory(session_id: str, principal: Principal = Depends(get_principal)):
+def get_memory(session_id: Annotated[str, PathParam(min_length=1, max_length=128)], principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
     return {
         "session_id": session_id,
@@ -200,7 +201,7 @@ def get_memory(session_id: str, principal: Principal = Depends(get_principal)):
 # DELETE MEMORY
 
 @app.delete("/memory/{session_id}")
-def delete_memory(session_id: str, principal: Principal = Depends(get_principal)):
+def delete_memory(session_id: Annotated[str, PathParam(min_length=1, max_length=128)], principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
     deleted = memory.clear_history(scope_session_id(principal, session_id))
 
@@ -214,7 +215,7 @@ def delete_memory(session_id: str, principal: Principal = Depends(get_principal)
 # USER PROFILE / PERSONALIZATION
 
 @app.get("/profile/{user_id}")
-def get_profile(user_id: str, principal: Principal = Depends(get_principal)):
+def get_profile(user_id: Annotated[str, PathParam(min_length=1, max_length=128)], principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
     user_id = resolve_user_id(principal, user_id)
     profile = memory.get_profile(user_id)
@@ -226,7 +227,7 @@ def get_profile(user_id: str, principal: Principal = Depends(get_principal)):
 
 
 @app.put("/profile/{user_id}")
-def update_profile(user_id: str, request: ProfileRequest, principal: Principal = Depends(get_principal)):
+def update_profile(user_id: Annotated[str, PathParam(min_length=1, max_length=128)], request: ProfileRequest, principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
     user_id = resolve_user_id(principal, user_id)
     updates = request.model_dump(exclude_unset=True)
@@ -244,7 +245,7 @@ def update_profile(user_id: str, request: ProfileRequest, principal: Principal =
 
 
 @app.delete("/profile/{user_id}")
-def delete_profile(user_id: str, principal: Principal = Depends(get_principal)):
+def delete_profile(user_id: Annotated[str, PathParam(min_length=1, max_length=128)], principal: Principal = Depends(get_principal)):
     _require_persistent_storage()
     user_id = resolve_user_id(principal, user_id)
     deleted = memory.delete_profile(user_id)
