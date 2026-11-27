@@ -15,6 +15,11 @@ Uploads to `/knowledge/ingest` (PDF, DOCX, TXT, MD) are untrusted. Text is extra
   `PATH`, `LANG`, `PYTHONDONTWRITEBYTECODE`. API keys, `DATABASE_URL` and JWT secrets are not passed on.
 - **Failures:** timeouts, crashes, resource kills and parser errors become a `ValueError` with a safe message (HTTP 400);
   nothing from the parser's error text is returned.
+- **Concurrency:** at most `NEXUS_EXTRACT_MAX_CONCURRENT` (default 2, range 1-16) children at once, enforced by a
+  `BoundedSemaphore` released in a `finally`. A request waits up to `NEXUS_EXTRACT_QUEUE_TIMEOUT_SECONDS` (default 5, range
+  1-60) for a slot, then gets **HTTP 503 with `Retry-After: 5`**. This is **per process**: with several server workers the
+  total is workers x N (for example 4 workers x 2 = 8 children, up to 8 x `NEXUS_EXTRACT_MEMORY_MB`). Size N and the
+  worker count against the host's memory. It is not shared across instances.
 - **Event loop:** the endpoint runs extraction and embedding with `run_in_threadpool`.
 
 ## Settings (defaults)
@@ -31,7 +36,6 @@ Uploads to `/knowledge/ingest` (PDF, DOCX, TXT, MD) are untrusted. Text is extra
   structural checks still are). The memory test is skipped off Linux. Production runs on Linux (Docker).
 - No network isolation, seccomp or namespace sandbox: a parser exploit that gains code execution in the child still has the
   server user's read access and network. A separate container or gVisor/Firecracker-style sandbox would be the next step.
-- Concurrent uploads each spawn a child: bound them with the existing rate limits (not changed here) or a semaphore.
 - `RLIMIT_AS` limits virtual memory; the 1024 MB default was sized for pypdf/python-docx and may need raising for very
   large valid files.
 - Heuristic checks cannot prove a file is benign.
