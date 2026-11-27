@@ -196,9 +196,10 @@ def resolve_client_address(request: Request, trusted_hops: int) -> str:
     if len(entries) < trusted_hops:
         return peer
     selected = [_parse_forwarded_entry(entry) for entry in entries[-trusted_hops:]]
-    if any(item is None for item in selected):
+    client = selected[0]
+    if client is None or any(item is None for item in selected):
         return peer
-    return selected[0]
+    return client
 
 
 class SlidingWindowRateLimiter:

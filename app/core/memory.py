@@ -58,10 +58,8 @@ class NexusMemory:
         initialize: bool = True
     ):
         self.max_messages = max(1, int(max_messages))
-        self.history_limit = max(
-            1,
-            int(history_limit or os.getenv("NEXUS_MEMORY_HISTORY_LIMIT", "16"))
-        )
+        configured_limit = int(history_limit) if history_limit else int(os.getenv("NEXUS_MEMORY_HISTORY_LIMIT", "16"))
+        self.history_limit = max(1, configured_limit)
         self.session_factory = session_factory or SessionLocal
         if initialize:
             init_db()
