@@ -18,6 +18,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 from typing import Deque
 
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
@@ -159,6 +160,49 @@ def load_security_settings() -> SecuritySettings:
     )
 
 
+class BodySizeLimitMiddleware:
+    """Enforce the request size limit on the bytes actually received, not only on a declared Content-Length.
+
+    A streamed (chunked) body has no Content-Length, so the header check alone lets it through and the framework would
+    buffer all of it in memory. This wrapper counts the bytes as the application reads them. When the limit is crossed it
+    answers 413 itself, tells the application the client went away (so it stops reading), and drops anything the
+    application then tries to send. (Raising from ``receive`` is not enough: the framework turns that into a 400/422.)
+    """
+
+    def __init__(self, app, max_bytes: int):
+        self.app, self.max_bytes = app, max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        state = {"received": 0, "rejected": False, "started": False}
+
+        async def counting_receive():
+            if state["rejected"]:
+                return {"type": "http.disconnect"}
+            message = await receive()
+            if message["type"] == "http.request":
+                state["received"] += len(message.get("body", b""))
+                if state["received"] > self.max_bytes:
+                    state["rejected"] = True
+                    if not state["started"]:
+                        await JSONResponse(
+                            status_code=413, content={"detail": "Request body exceeds the configured size limit."},
+                        )(scope, receive, send)
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def guarded_send(message):
+            if state["rejected"]:
+                return
+            if message["type"] == "http.response.start":
+                state["started"] = True
+            await send(message)
+
+        await self.app(scope, counting_receive, guarded_send)
+
+
 def _parse_forwarded_entry(raw: str) -> str | None:
     """Return the normalised IP in one X-Forwarded-For entry (optionally with a port), or None if it is not an IP."""
     value = raw.strip()
@@ -258,6 +302,23 @@ def install_security(app, key_store=None, jwt_verifier=None) -> None:
     limiter = SlidingWindowRateLimiter(settings.rate_limit_per_minute)
     identity_limiter = SlidingWindowRateLimiter(settings.identity_rate_limit_per_minute)
     app.state.security_settings = settings
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_error(_request: Request, exc: RequestValidationError):
+        # The framework default echoes the rejected input back. That reflects attacker text and PII into responses and
+        # fails to serialise values such as NaN or very deeply nested JSON (a 500). Report only where and why.
+        errors = []
+        for error in exc.errors()[:20]:
+            item = {"loc": [str(part) for part in error.get("loc", ())][:6], "msg": str(error.get("msg", ""))[:200],
+                    "type": str(error.get("type", ""))[:60]}
+            context = error.get("ctx")  # the violated constraint (for example max_length), never the input itself
+            if isinstance(context, dict):
+                safe = {str(k): v for k, v in context.items()
+                        if isinstance(v, (int, str, bool)) and not isinstance(v, float) or v is None}
+                if safe:
+                    item["ctx"] = {k: (v[:200] if isinstance(v, str) else v) for k, v in safe.items()}
+            errors.append(item)
+        return JSONResponse(status_code=422, content={"detail": errors})
     if key_store is None and settings.keystore_enabled:
         # imported on demand: constructing the store opens the application database
         from app.security.keystore import KeyStore
@@ -380,3 +441,5 @@ def install_security(app, key_store=None, jwt_verifier=None) -> None:
         allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
         max_age=600,
     )
+    # Added after CORS so it wraps everything installed above it; installed outermost relative to the security middleware.
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
