@@ -10,10 +10,12 @@ execution in the child still runs with the server user's file-read permissions.
 """
 
 import os
+
 # Fixed argv, no shell: the only caller-influenced values are a file path and numeric limits.
 import subprocess  # nosec B404
 import sys
 import tempfile
+import threading
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +27,25 @@ _SAFE_ENV = {"PATH": "/usr/local/bin:/usr/bin:/bin", "LANG": "C.UTF-8", "PYTHOND
 
 class ExtractionError(ValueError):
     """The document was refused or could not be processed safely. The message is safe to show to the uploader."""
+
+
+class ExtractionBusy(Exception):
+    """All extraction slots are in use. Deliberately not a ValueError: this is a capacity problem, not a bad document."""
+
+    retry_after_seconds = 5
+
+
+# One bounded semaphore per distinct limit, per process. With several server workers the effective cap is
+# workers x NEXUS_EXTRACT_MAX_CONCURRENT.
+_SEMAPHORES: dict[int, threading.BoundedSemaphore] = {}
+_SEMAPHORES_LOCK = threading.Lock()
+
+
+def _semaphore(size: int) -> threading.BoundedSemaphore:
+    with _SEMAPHORES_LOCK:
+        if size not in _SEMAPHORES:
+            _SEMAPHORES[size] = threading.BoundedSemaphore(size)
+        return _SEMAPHORES[size]
 
 
 def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -50,6 +71,8 @@ class ExtractionLimits:
     timeout_seconds: int = 20
     memory_mb: int = 1024
     cpu_seconds: int = 15
+    max_concurrent: int = 2
+    queue_timeout_seconds: int = 5
 
     @classmethod
     def from_env(cls) -> "ExtractionLimits":
@@ -62,6 +85,8 @@ class ExtractionLimits:
             timeout_seconds=_env_int("NEXUS_EXTRACT_TIMEOUT_SECONDS", cls.timeout_seconds, 1, 300),
             memory_mb=_env_int("NEXUS_EXTRACT_MEMORY_MB", cls.memory_mb, 128, 16_384),
             cpu_seconds=_env_int("NEXUS_EXTRACT_CPU_SECONDS", cls.cpu_seconds, 1, 300),
+            max_concurrent=_env_int("NEXUS_EXTRACT_MAX_CONCURRENT", cls.max_concurrent, 1, 16),
+            queue_timeout_seconds=_env_int("NEXUS_EXTRACT_QUEUE_TIMEOUT_SECONDS", cls.queue_timeout_seconds, 1, 60),
         )
 
 
@@ -83,7 +108,8 @@ def validate_signature(path: Path, suffix: str) -> None:
 
 
 def extract_document_text(file_path: str, limits: ExtractionLimits | None = None) -> str:
-    """Return the text of a document, or raise ExtractionError (a ValueError). Blocks: call it from a worker thread."""
+    """Return the text of a document, or raise ExtractionError (a ValueError) or ExtractionBusy when every extraction slot
+    stays taken for ``queue_timeout_seconds``. Blocks: call it from a worker thread."""
     limits = limits or ExtractionLimits.from_env()
     path = Path(file_path)
     suffix = path.suffix.lower()
@@ -91,20 +117,26 @@ def extract_document_text(file_path: str, limits: ExtractionLimits | None = None
         raise ExtractionError(f"Unsupported document format: {suffix}")
     validate_signature(path, suffix)
 
-    argv = [
-        sys.executable, "-I", str(_WORKER), str(path), suffix,
-        str(limits.max_chars), str(limits.max_pdf_pages), str(limits.max_docx_entries),
-        str(limits.max_docx_uncompressed), str(limits.max_docx_ratio), str(limits.memory_mb), str(limits.cpu_seconds),
-    ]
+    slots = _semaphore(limits.max_concurrent)
+    if not slots.acquire(timeout=limits.queue_timeout_seconds):
+        raise ExtractionBusy("Document processing is at capacity")
     try:
-        completed = subprocess.run(  # nosec B603
-            argv, capture_output=True, timeout=limits.timeout_seconds, env=_SAFE_ENV,
-            cwd=tempfile.gettempdir(), check=False, stdin=subprocess.DEVNULL,
-        )
-    except subprocess.TimeoutExpired as exc:  # run() kills the child before raising
-        raise ExtractionError("Document processing timed out") from exc
-    except OSError as exc:
-        raise ExtractionError("Document processing is unavailable") from exc
+        argv = [
+            sys.executable, "-I", str(_WORKER), str(path), suffix,
+            str(limits.max_chars), str(limits.max_pdf_pages), str(limits.max_docx_entries),
+            str(limits.max_docx_uncompressed), str(limits.max_docx_ratio), str(limits.memory_mb), str(limits.cpu_seconds),
+        ]
+        try:
+            completed = subprocess.run(  # nosec B603
+                argv, capture_output=True, timeout=limits.timeout_seconds, env=_SAFE_ENV,
+                cwd=tempfile.gettempdir(), check=False, stdin=subprocess.DEVNULL,
+            )
+        except subprocess.TimeoutExpired as exc:  # run() kills the child before raising
+            raise ExtractionError("Document processing timed out") from exc
+        except OSError as exc:
+            raise ExtractionError("Document processing is unavailable") from exc
+    finally:
+        slots.release()
 
     if completed.returncode == 0:
         return completed.stdout.decode("utf-8", errors="replace")

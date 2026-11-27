@@ -8,7 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.security.identity import SYSTEM_USER, Principal, get_principal, resolve_user_id
-from app.services.document_extraction import ExtractionLimits, extract_document_text
+from app.services.document_extraction import ExtractionBusy, ExtractionLimits, extract_document_text
 from app.services.rag import rag
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
@@ -74,6 +74,12 @@ async def ingest_document(
             {"filename": filename},
         )
 
+    except ExtractionBusy as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Document processing is busy. Retry shortly.",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
