@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
+from app.core.metrics import metrics
 from app.security.identity import SYSTEM_USER, Principal, get_principal, resolve_user_id
 from app.services.document_extraction import ExtractionBusy, ExtractionLimits, extract_document_text
 from app.services.rag import rag
@@ -25,8 +26,12 @@ class KnowledgeSearchRequest(BaseModel):
 
 def _extract_and_ingest(temp_path: str, user_id: str, metadata: dict):
     limits = replace(ExtractionLimits.from_env(), max_chars=rag.max_document_chars)
-    text = extract_document_text(temp_path, limits)
-    return rag.ingest_text(text=text, source=Path(temp_path).name, user_id=user_id, metadata=metadata)
+    with metrics.rag_timer("extract"):
+        text = extract_document_text(temp_path, limits)
+    with metrics.rag_timer("ingest") as timer:
+        result = rag.ingest_text(text=text, source=Path(temp_path).name, user_id=user_id, metadata=metadata)
+        timer.results = int(result.get("chunks_ingested", 0)) if isinstance(result, dict) else None
+    return result
 
 
 @router.post("/ingest")
@@ -130,11 +135,13 @@ def delete_knowledge_source(
 def search_knowledge(request: KnowledgeSearchRequest, principal: Principal = Depends(get_principal)):
     user_id = resolve_user_id(principal, request.user_id, default=SYSTEM_USER)
     try:
-        results = rag.search(
-            query=request.query,
-            user_id=user_id,
-            limit=request.limit
-        )
+        with metrics.rag_timer("search") as timer:
+            results = rag.search(
+                query=request.query,
+                user_id=user_id,
+                limit=request.limit
+            )
+            timer.results = len(results)
         return {
             "query": request.query,
             "results_count": len(results),

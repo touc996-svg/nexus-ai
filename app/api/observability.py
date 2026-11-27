@@ -5,12 +5,19 @@ from pathlib import Path
 from fastapi import APIRouter, Depends
 
 from app.core.llm import get_ollama_health
+from app.core.metrics import metrics
 from app.core.memory import memory
 from app.security.identity import require_admin
 from app.services.rag import rag
 
 # System status describes the deployment, not a user's data: administrator credentials only.
 router = APIRouter(tags=["Observability"], dependencies=[Depends(require_admin)])
+
+
+@router.get("/system/metrics")
+def system_metrics():
+    """Process-local counters and latency histograms. No user text is ever stored in them."""
+    return metrics.snapshot()
 
 
 @router.get("/system/llm-health")
