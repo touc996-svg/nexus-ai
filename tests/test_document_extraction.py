@@ -244,3 +244,37 @@ def test_limit_settings_are_validated(monkeypatch):
     monkeypatch.setenv("NEXUS_EXTRACT_MEMORY_MB", "1")
     with pytest.raises(ValueError, match="NEXUS_EXTRACT_MEMORY_MB"):
         ExtractionLimits.from_env()
+
+
+# ---- endpoint wiring ---------------------------------------------------------------------------------------------
+
+def _upload(name, data):
+    from unittest.mock import patch
+
+    from fastapi import UploadFile
+
+    from app.api import knowledge
+    from app.security.identity import UNAUTHENTICATED
+
+    upload = UploadFile(file=io.BytesIO(data), filename=name)
+    with patch.object(knowledge.rag, "ingest_text", return_value={"status": "ingested"}) as ingest:
+        try:
+            result = asyncio.run(knowledge.ingest_document(file=upload, user_id=None, principal=UNAUTHENTICATED))
+        except Exception as exc:  # noqa: BLE001 - the test inspects the HTTP error
+            return exc, ingest
+    return result, ingest
+
+
+def test_ingest_endpoint_refuses_a_mislabelled_upload_with_400():
+    from fastapi import HTTPException
+
+    error, ingest = _upload("report.pdf", b"this is not a pdf")
+    assert isinstance(error, HTTPException) and error.status_code == 400
+    ingest.assert_not_called()
+
+
+def test_ingest_endpoint_still_ingests_a_valid_document():
+    result, ingest = _upload("note.txt", b"plain valid text")
+    assert result == {"status": "ingested"}
+    assert ingest.call_args.kwargs["text"] == "plain valid text"
+    assert ingest.call_args.kwargs["metadata"] == {"filename": "note.txt"}

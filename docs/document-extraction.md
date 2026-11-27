@@ -23,6 +23,10 @@ Uploads to `/knowledge/ingest` (PDF, DOCX, TXT, MD) are untrusted. Text is extra
 `NEXUS_EXTRACT_MAX_DOCX_RATIO=100`, `NEXUS_RAG_MAX_DOCUMENT_CHARS=2000000`.
 
 ## Limitations
+- `NexusRAG.extract_text` and `NexusRAG.ingest_file` in `app/services/rag.py` are **unchanged and still parse in-process**. The API no
+  longer uses them (it calls the isolated extractor, then `ingest_text`). They were left alone because the evaluation replay
+  cache is keyed on a hash of `rag.py` and cannot be regenerated without a live Ollama; remove them in a follow-up together
+  with a cache refresh. Do not call them with untrusted files.
 - **macOS:** `RLIMIT_AS` is ignored or rejected, so the memory limit is **not enforced** there (timeout, CPU limit and the
   structural checks still are). The memory test is skipped off Linux. Production runs on Linux (Docker).
 - No network isolation, seccomp or namespace sandbox: a parser exploit that gains code execution in the child still has the
