@@ -12,15 +12,19 @@ Statuses: VERIFIED, MISSING, NEEDS FIX, BLOCKED, NOT APPLICABLE.
 | H4 reproducible deps | #20 (12bf7e8) | FIXED | hashed universal lock, `openai==3.42.0`, `--require-hashes` in Docker/Render/CI, `pip-audit` clean and in CI | lock not refreshed on a schedule (no Dependabot/Renovate) |
 | H3 managed DB | #22 (8621ce0) | CODE READY | Postgres via `DATABASE_URL`, TLS enforced for remote hosts, pooling, Alembic baseline; 455 tests incl. real local Postgres 16, no drift; CI job added | **not tested on real Neon**; no SQLite->Postgres data copy; Render config still demo-only and has no migration step |
 | H1 injection/PII/output | #21 (13bbad8) | PARTIAL | heuristic layer: chunk drop, marker defusal, PII masking, output scrub; 48 security regression tests green; mutation check on chunk drop | bypassable by design; user messages unfiltered; no adversarial corpus or live-model evaluation; no ingest-time scan |
+| M4 tracked `.bak` files | #24 (f694cc0) | FIXED | 25 files removed, `*.bak*` ignored | untracked local backups left in place |
+| CI scanning | #25 (1ca79db) | DONE | gitleaks (full history) and Trivy (fs + image, HIGH/CRITICAL fixable) run on main; 3 image CVEs patched in the Dockerfile | base image not pinned by digest; scanners find only known CVEs and configured secret patterns; gitleaks allowlist covers `tests/` and `evals/cache|recovery/` |
+| M6 document parsing | #26 (96e0c52) | FIXED (hardened, not sandboxed) | signature checks, DOCX zip-bomb limits, PDF page and incremental char limits, child process with timeout/CPU/memory limits and scrubbed env, off the event loop; 24 extraction tests green on Linux CI and in Linux Docker, incl. memory-limit test | see below |
 
 ## Remaining production blockers (untrusted multi-user)
 1. Real Neon verification (TLS, pooler, cold starts) and a migration step in the deploy flow.
 2. H1 hardening: adversarial test corpus, live-model evaluation, ingest-time checks.
 3. Qdrant server path never run in CI (M-level RAG items: hybrid/rerank/citations/abstention still absent in production code).
-4. Shared rate limiting / proxy handling (M1), secret management (M2), upload parsing isolation (M6).
-5. No observability (errors, latency, tokens), no container scan, no secret scan in CI, no deploy gate (Render auto-deploys `main` on commit).
-6. Ruff 98 / mypy 13 findings untriaged; 25 tracked `.bak` files.
-7. Docker image build verified only in CI, not run as a container.
+4. Shared rate limiting / proxy handling (M1), secret management (M2), extraction concurrency limit (each upload spawns a child; no cap).
+5. No observability (errors, latency, tokens) and no deploy gate (Render auto-deploys `main` on commit).
+6. Ruff 98 / mypy 13 findings untriaged.
+7. Docker image: built and health-checked locally once (non-root, healthy), CI builds it; not run under production settings.
+8. Extraction limitations: `RLIMIT_AS` (memory) is **not enforced on macOS** (enforced and tested on Linux); no network isolation or seccomp sandbox, so a parser exploit in the child keeps the server user's read access; legacy `NexusRAG.extract_text`/`ingest_file` in `rag.py` still parse in-process (unused by the API; removal needs an eval replay-cache refresh with live Ollama).
 
 ## 1. Executive summary
 
