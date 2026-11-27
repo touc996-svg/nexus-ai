@@ -75,3 +75,38 @@ def test_auto_create_defaults(monkeypatch):
     assert db.auto_create_enabled() is False
     monkeypatch.setenv("NEXUS_DB_AUTO_CREATE", "true")
     assert db.auto_create_enabled() is True
+
+
+def test_init_db_survives_a_concurrent_create_table_race(monkeypatch):
+    """Two workers starting together can both try to create a table; the loser must retry, not crash."""
+    from sqlalchemy.exc import OperationalError
+
+    from app.core import database
+
+    calls = {"n": 0}
+
+    def racy(bind=None):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise OperationalError("CREATE TABLE x", {}, Exception("table x already exists"))
+
+    monkeypatch.setattr(database.Base.metadata, "create_all", racy)
+    monkeypatch.setattr(database, "auto_create_enabled", lambda: True)
+    database.init_db()
+    assert calls["n"] == 3
+
+
+def test_init_db_still_raises_real_errors(monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    from app.core import database
+
+    def broken(bind=None):
+        raise OperationalError("CREATE TABLE x", {}, Exception("disk I/O error"))
+
+    monkeypatch.setattr(database.Base.metadata, "create_all", broken)
+    monkeypatch.setattr(database, "auto_create_enabled", lambda: True)
+    import pytest
+
+    with pytest.raises(OperationalError):
+        database.init_db()

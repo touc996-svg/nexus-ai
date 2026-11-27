@@ -19,7 +19,8 @@ from app.security.content_safety import redact_pii, scrub_model_output
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
-ALLOWED_EXTRA = ("event", "method", "route", "status", "duration_ms", "error_type", "agent", "count", "model", "op")
+ALLOWED_EXTRA = ("event", "method", "route", "status", "duration_ms", "error_type", "agent", "count", "model", "op",
+                "rule", "value", "threshold", "window_seconds", "severity")
 MAX_MESSAGE_CHARS = 1000
 _SENSITIVE_PAIR = re.compile(
     r"(?i)\b(authorization|x-api-key|api[_-]?key|password|passwd|secret|token|credential|prompt|message|content)\b"

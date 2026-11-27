@@ -1,4 +1,4 @@
-# Observability (in-process, no external services)
+# Observability (no external services)
 
 ## Logs
 - `app/core/logging_config.py`: JSON lines on stderr from the `nexus*` loggers. `NEXUS_LOG_LEVEL` (default `INFO`),
@@ -17,12 +17,66 @@
 and latency histograms: requests by method, **route template** and status class (rejections before routing appear as
 `unmatched`), errors, LLM calls/latency/failures/tokens (`unknown` when the model server returns no usage), RAG
 search/extract/ingest counts, latency, results, empty results and chunks dropped by the injection filter, and agent runs and
-failures. Labels are sanitised (fixed agent names, error *type* names, status classes); series are capped at 1000 per
-process, with one `overflow` series per metric beyond that.
+failures. Labels are sanitised (fixed agent names, error *type* names, status classes); series are capped at 1000,
+with one `overflow` series per metric beyond that. With persistence on (the default) the figures are stored in the database
+and aggregated across workers (next section).
+
+## Persistent metrics (multi-worker)
+`app/core/metrics.py` is the per-process recorder. Each update is also kept as a *delta* in a 60-second window. A background
+thread in every worker (`app/core/monitoring.py`, started by the FastAPI lifespan) writes the deltas to the SQL database
+about every `NEXUS_METRICS_FLUSH_SECONDS` (default 10) and once more at graceful shutdown (SIGTERM).
+- **Storage:** tables `metric_counters`, `metric_histograms`, `metric_flushes` (migration `0002`). SQLite for development
+  (created automatically), PostgreSQL for deployment (`alembic upgrade head`). No Redis.
+- **Aggregation:** deltas are added with an atomic `INSERT ... ON CONFLICT DO UPDATE SET value = value + excluded.value`,
+  so concurrent workers never overwrite each other. `GET /system/metrics` returns the database totals (all workers, all
+  restarts within the retention period) after flushing the answering worker's own pending deltas.
+- **No double counting:** every batch carries a flush id recorded in the same transaction. If a commit's outcome is unknown, the
+  retry reuses the id and is skipped when it was already applied.
+- **Failure handling:** a failed flush keeps its batch (bounded to 30 batches; older ones are dropped and counted in
+  `metrics_flush_dropped_total`), increments `metrics_flush_failures_total`, and is retried next cycle. The API never fails
+  because monitoring failed. If the database cannot be read, `/system/metrics` falls back to the process-local snapshot and
+  `persistence.status` is `unavailable`.
+- **Bounds:** labels stay sanitised (see above); the distinct series cap (1000) applies across workers; windows older than
+  `NEXUS_METRICS_RETENTION_HOURS` (default 72) are pruned, so totals cover the retained period (`persistence.covers_since`).
+- Switches: `NEXUS_METRICS_PERSISTENCE=false` keeps the old process-local behaviour; `NEXUS_METRICS_FLUSH_SECONDS` (1-300).
+- New series: `http_throttled_total{route,status}` (429/503), `qdrant_unavailable_total`, `alerts_fired_total{rule}`,
+  `alerts_resolved_total{rule}`, `metrics_flush_failures_total`, `metrics_flush_dropped_total`; gauge `alerts_firing{rule}`.
+
+## Internal alerts
+`app/core/alerts.py` evaluates rules over rolling windows of the persisted metrics every `NEXUS_ALERT_EVAL_SECONDS`
+(default 30). Delivery is **logs and `GET /system/alerts` (administrator only) only**: no e-mail, chat or webhook.
+
+| Rule | Condition (default) |
+|---|---|
+| `http_5xx_rate` | 5xx / all responses > 5% over 300 s, at least 20 requests |
+| `http_p95_latency` | p95 request latency > 5000 ms over 300 s, at least 20 requests |
+| `qdrant_unavailable` | 3 or more "unavailable after retries" events in 300 s |
+| `llm_failure_rate` | failed / all model calls > 20% over 300 s, at least 5 calls |
+| `llm_p95_latency` | p95 model call latency > 30000 ms over 300 s, at least 5 calls |
+| `extraction_rejections` | 5 or more 429/503 answers from `/knowledge/ingest` in 300 s |
+| `rag_failure_rate` | failed / all RAG operations > 25% over 300 s, at least 5 |
+| `agent_failure_rate` | unsuccessful / all agent runs > 25% over 300 s, at least 5 |
+
+- Override with `NEXUS_ALERT_RULES`, for example `{"http_5xx_rate": {"threshold": 0.1, "window_seconds": 600,
+  "min_samples": 50, "cooldown_seconds": 900, "enabled": true}}`. Unknown rules, unknown fields and out-of-range values are
+  refused at start-up. `NEXUS_ALERTS_ENABLED=false` turns the evaluator off.
+- **Windows** are whole 60-second buckets, so a window of 300 s effectively covers 300-360 s. Percentiles are bucket upper
+  bounds (the histogram boundaries), so they over-estimate slightly; a value beyond the last bucket (60 s) is reported as 120 s.
+- **State and deduplication:** state lives in `alert_state` and survives restarts. A firing alert is announced once; the
+  transition is a compare-and-swap, so with many workers exactly one logs `alert_fired` / `alert_resolved`.
+  After a resolution the rule cannot fire again until `cooldown_seconds` (default 300) have passed. Too little data counts
+  as healthy, so alerts resolve when traffic stops.
+- **Logs:** `alert_fired` (WARNING) and `alert_resolved` (INFO) with `rule, value, threshold, window_seconds, severity`.
+- **Endpoint:** `GET /system/alerts` returns each rule's status, last value, thresholds, counts, cooldown, and the last 50 events.
+  `401` without a key, `403` for a per-user key; read-only (no way to acknowledge or edit state over HTTP).
 
 ## Limits
-- Process-local: reset on restart, not shared across workers or instances. No alerting or dashboards (those need an external
-  service).
+- Alert thresholds are starting points, not tuned to any real traffic: measure, then override. NOT VERIFIED against production load.
+- Alerts reach no one by themselves: someone (or a log pipeline) must read the logs or `/system/alerts`.
+- Metrics are counted when recorded, but reach the database up to one flush interval later; a hard crash (SIGKILL, power
+  loss) loses at most that interval of that worker's deltas.
+- Totals cover the retention period, not all time. With SQLite and several workers on the same file, writes are serialised
+  by SQLite's lock (fine for development; use PostgreSQL for deployment).
 - Token counts exist only if the model server reports usage. Embedding time is not measured separately: RAG search/ingest
   timing wraps the callers, because `app/services/rag.py` is deliberately unchanged (the evaluation replay cache is keyed on its hash).
 - Redaction is pattern-based and cannot recognise arbitrary secrets in free text.

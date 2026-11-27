@@ -11,7 +11,8 @@ from sqlalchemy import create_engine, inspect
 
 from app.core.database import Base, build_engine_options, normalize_database_url
 
-EXPECTED = {"memory_messages", "user_profiles", "agent_activity", "api_keys"}
+EXPECTED = {"memory_messages", "user_profiles", "agent_activity", "api_keys", "metric_counters", "metric_histograms",
+            "metric_flushes", "alert_state", "alert_events"}
 POSTGRES_URL = os.getenv("NEXUS_TEST_POSTGRES_URL", "")
 
 
