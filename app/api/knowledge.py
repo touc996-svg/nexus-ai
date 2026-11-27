@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.security.identity import SYSTEM_USER, Principal, get_principal, resolve_user_id
@@ -57,7 +58,9 @@ async def ingest_document(
             temp.write(content)
             temp_path = temp.name
 
-        return rag.ingest_file(
+        # Extraction and embedding block; keep them off the event loop.
+        return await run_in_threadpool(
+            rag.ingest_file,
             temp_path,
             user_id=user_id,
             metadata={"filename": filename}

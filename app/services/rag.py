@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from docx import Document
-from pypdf import PdfReader
 from qdrant_client import QdrantClient, models
+
+from app.services.document_extraction import ExtractionLimits, extract_document_text
 
 
 class NexusRAG:
@@ -144,18 +144,12 @@ class NexusRAG:
         ) from last_error
 
     @staticmethod
-    def extract_text(file_path: str) -> str:
-        path = Path(file_path)
-        suffix = path.suffix.lower()
-        if suffix == ".pdf":
-            reader = PdfReader(str(path))
-            return "\n".join(page.extract_text() or "" for page in reader.pages)
-        if suffix == ".docx":
-            document = Document(str(path))
-            return "\n".join(p.text for p in document.paragraphs)
-        if suffix in {".txt", ".md"}:
-            return path.read_text(encoding="utf-8", errors="replace")
-        raise ValueError(f"Unsupported document format: {suffix}")
+    def extract_text(file_path: str, max_chars: int | None = None) -> str:
+        """Extract text in an isolated, resource-limited child process (see document_extraction.py)."""
+        limits = ExtractionLimits.from_env()
+        if max_chars is not None:
+            limits = ExtractionLimits(**{**limits.__dict__, "max_chars": max_chars})
+        return extract_document_text(file_path, limits)
 
     @staticmethod
     def chunk_text(
@@ -316,7 +310,7 @@ class NexusRAG:
         if not path.is_file():
             raise FileNotFoundError(file_path)
         return self.ingest_text(
-            text=self.extract_text(str(path)),
+            text=self.extract_text(str(path), max_chars=self.max_document_chars),
             source=path.name,
             user_id=user_id,
             metadata=metadata
