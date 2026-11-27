@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, overload
 
 from fastapi import Depends, HTTPException, Request
 
@@ -38,6 +38,11 @@ ROLE_USER = "user"
 class Principal:
     user_id: str | None
     is_admin: bool
+
+    def __post_init__(self) -> None:
+        # A non-administrator without a user id would be neither confined to a user nor an administrator.
+        if not self.is_admin and self.user_id is None:
+            raise ValueError("A non-administrator principal must have a user id")
 
     @property
     def scoped(self) -> bool:
@@ -91,6 +96,14 @@ def require_admin(principal: Annotated[Principal, Depends(get_principal)]) -> Pr
     return principal
 
 
+@overload
+def resolve_user_id(principal: Principal, requested: str, default: str | None = None) -> str: ...
+@overload
+def resolve_user_id(principal: Principal, requested: str | None, default: str) -> str: ...
+@overload
+def resolve_user_id(principal: Principal, requested: str | None, default: None = None) -> str | None: ...
+
+
 def resolve_user_id(principal: Principal, requested: str | None, default: str | None = None) -> str | None:
     """Return the user id this request may act on.
 
@@ -98,9 +111,12 @@ def resolve_user_id(principal: Principal, requested: str | None, default: str | 
     unauthenticated callers keep the requested id (or ``default`` when none was given).
     """
     if principal.scoped:
-        if requested is not None and requested != principal.user_id:
+        own = principal.user_id
+        if own is None:  # unreachable (scoped implies a user id); fail closed rather than fall through
             raise HTTPException(status_code=403, detail="Access to another user's data is not permitted.")
-        return principal.user_id
+        if requested is not None and requested != own:
+            raise HTTPException(status_code=403, detail="Access to another user's data is not permitted.")
+        return own
     return requested if requested is not None else default
 
 

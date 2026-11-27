@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean, median
 from time import perf_counter
+from typing import cast
 
 
 DEFAULT_BENCHMARKS = [
@@ -166,7 +167,7 @@ class AgentEvaluator:
                 "cases": len(items),
                 "passed": sum(item["status"] == "passed" for item in items),
                 "pass_rate": round(sum(item["status"] == "passed" for item in items) / len(items), 3),
-                "average_latency_ms": round(mean(item["duration_ms"] for item in items), 2),
+                "average_latency_ms": round(mean(cast("list[float]", [item["duration_ms"] for item in items])), 2),
             }
 
         return {
