@@ -33,8 +33,8 @@ EXPOSE 8010
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health/live', timeout=3)" || exit 1
 
-# UVICORN_WORKERS sets the worker count (default 1). --no-proxy-headers: the application reads X-Forwarded-For itself, from
-# NEXUS_TRUSTED_PROXY_HOPS, so uvicorn must not rewrite the client address too. SIGTERM drains in-flight requests for up to
-# 25 s, then each worker's shutdown flushes its metrics.
+# UVICORN_WORKERS sets the worker count (default 1). app/serve.py runs uvicorn with proxy-header rewriting off (the application reads
+# X-Forwarded-For itself, from NEXUS_TRUSTED_PROXY_HOPS), a 25 s SIGTERM drain (each worker's shutdown then flushes its metrics),
+# and TCP_NODELAY on the shared listening socket (without it, multi-worker uvicorn adds ~42 ms to every keep-alive request).
 ENV UVICORN_WORKERS=1
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010", "--no-proxy-headers", "--timeout-graceful-shutdown", "25"]
+CMD ["python", "-m", "app.serve"]

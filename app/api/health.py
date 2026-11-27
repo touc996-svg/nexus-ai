@@ -9,8 +9,12 @@ router = APIRouter(tags=["Health"])
 
 
 @router.get("/health/live")
-def liveness():
-    """Return success while the API process is serving requests."""
+async def liveness():
+    """Return success while the API process is serving requests.
+
+    ``async def`` on purpose: it runs on the event loop, not in the 40-thread pool that synchronous handlers share. When slow
+    model calls occupy every pool thread, a synchronous liveness route would queue behind them, time out, and make the proxy
+    (and an orchestrator) conclude that a busy-but-alive process is dead (measured in docs/LOAD_TEST_REPORT.md)."""
     return {"status": "alive"}
 
 

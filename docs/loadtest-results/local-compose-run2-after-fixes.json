@@ -1,0 +1,3531 @@
+{
+ "steps": [
+  {
+   "name": "health",
+   "note": "liveness only: the framework/proxy ceiling",
+   "requests": 2482,
+   "duration_seconds": 30.0,
+   "rps": 82.73,
+   "success_rps": 82.73,
+   "ok": 2482,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 2482
+   },
+   "latency_ms": {
+    "min": 3.52,
+    "p50": 419.12,
+    "p95": 2863.11,
+    "p99": 5325.79,
+    "max": 8103.8,
+    "mean": 778.12
+   },
+   "ok_latency_ms": {
+    "p50": 419.12,
+    "p95": 2863.11,
+    "p99": 5325.79
+   },
+   "scenario": "health",
+   "concurrency": 64,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 569,
+     "success_rate": 1.0,
+     "p95_ms": 2888.9
+    },
+    {
+     "t": 5.0,
+     "requests": 118,
+     "success_rate": 1.0,
+     "p95_ms": 5252.2
+    },
+    {
+     "t": 10.0,
+     "requests": 174,
+     "success_rate": 1.0,
+     "p95_ms": 4458.7
+    },
+    {
+     "t": 15.0,
+     "requests": 416,
+     "success_rate": 1.0,
+     "p95_ms": 2018.3
+    },
+    {
+     "t": 20.0,
+     "requests": 686,
+     "success_rate": 1.0,
+     "p95_ms": 1274.2
+    },
+    {
+     "t": 25.0,
+     "requests": 519,
+     "success_rate": 1.0,
+     "p95_ms": 1765.1
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 17.1,
+     "cpu_percent_max": 33.8,
+     "mem_mb_max": 21.6,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 59.6,
+     "cpu_percent_max": 125.7,
+     "mem_mb_max": 332.0,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 16.2,
+     "cpu_percent_max": 36.9,
+     "mem_mb_max": 34.1,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 3.9,
+     "cpu_percent_max": 10.1,
+     "mem_mb_max": 40.0,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 10.1,
+     "cpu_percent_max": 53.2,
+     "mem_mb_max": 36.1,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 79,
+    "rollbacks": 20,
+    "tuples_returned": 1738,
+    "tuples_fetched": 751,
+    "tuples_inserted": 8,
+    "tuples_updated": 28,
+    "blocks_hit": 1249,
+    "blocks_read": 24,
+    "cache_hit_ratio": 0.9811,
+    "connections_at_end": 3
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 2488,
+     "mean_ms": 51.7,
+     "p95_ms_bucket_upper_bound": 250.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "ready",
+   "note": "readiness touches PostgreSQL, Qdrant and the (fake) model server",
+   "requests": 932,
+   "duration_seconds": 30.0,
+   "rps": 31.07,
+   "success_rps": 31.07,
+   "ok": 932,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 932
+   },
+   "latency_ms": {
+    "min": 29.13,
+    "p50": 101.37,
+    "p95": 898.69,
+    "p99": 3210.83,
+    "max": 7941.08,
+    "mean": 266.52
+   },
+   "ok_latency_ms": {
+    "p50": 101.37,
+    "p95": 898.69,
+    "p99": 3210.83
+   },
+   "scenario": "ready",
+   "concurrency": 8,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 374,
+     "success_rate": 1.0,
+     "p95_ms": 208.7
+    },
+    {
+     "t": 5.0,
+     "requests": 316,
+     "success_rate": 1.0,
+     "p95_ms": 248.0
+    },
+    {
+     "t": 10.0,
+     "requests": 132,
+     "success_rate": 1.0,
+     "p95_ms": 2048.6
+    },
+    {
+     "t": 15.0,
+     "requests": 93,
+     "success_rate": 1.0,
+     "p95_ms": 2407.7
+    },
+    {
+     "t": 20.0,
+     "requests": 9,
+     "success_rate": 1.0,
+     "p95_ms": 7941.1
+    },
+    {
+     "t": 25.0,
+     "requests": 8,
+     "success_rate": 1.0,
+     "p95_ms": 3731.3
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 9.6,
+     "cpu_percent_max": 13.1,
+     "mem_mb_max": 20.4,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 178.9,
+     "cpu_percent_max": 229.8,
+     "mem_mb_max": 366.6,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 33.6,
+     "cpu_percent_max": 55.6,
+     "mem_mb_max": 47.6,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 7.8,
+     "cpu_percent_max": 19.6,
+     "mem_mb_max": 45.2,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 34.2,
+     "cpu_percent_max": 81.5,
+     "mem_mb_max": 46.6,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 1942,
+    "rollbacks": 1884,
+    "tuples_returned": 728770,
+    "tuples_fetched": 34880,
+    "tuples_inserted": 20,
+    "tuples_updated": 24,
+    "blocks_hit": 157741,
+    "blocks_read": 6,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 9
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 938,
+     "mean_ms": 229.4,
+     "p95_ms_bucket_upper_bound": 1000.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "rag_ingest",
+   "note": "TXT upload -> extraction subprocess -> chunk -> embed -> Qdrant upsert",
+   "requests": 80,
+   "duration_seconds": 30.0,
+   "rps": 2.67,
+   "success_rps": 2.43,
+   "ok": 73,
+   "success_rate": 0.9125,
+   "error_rate": 0.0875,
+   "http_429": 0,
+   "http_503": 7,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 73,
+    "503": 7
+   },
+   "latency_ms": {
+    "min": 370.5,
+    "p50": 1625.35,
+    "p95": 11556.17,
+    "p99": 17471.39,
+    "max": 17471.39,
+    "mean": 3755.99
+   },
+   "ok_latency_ms": {
+    "p50": 1602.92,
+    "p95": 11650.83,
+    "p99": 17471.39
+   },
+   "scenario": "ingest",
+   "concurrency": 8,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 32,
+     "success_rate": 1.0,
+     "p95_ms": 2064.2
+    },
+    {
+     "t": 5.0,
+     "requests": 28,
+     "success_rate": 1.0,
+     "p95_ms": 10528.7
+    },
+    {
+     "t": 10.0,
+     "requests": 7,
+     "success_rate": 0.714,
+     "p95_ms": 16351.6
+    },
+    {
+     "t": 15.0,
+     "requests": 3,
+     "success_rate": 1.0,
+     "p95_ms": 10330.6
+    },
+    {
+     "t": 20.0,
+     "requests": 4,
+     "success_rate": 0.5,
+     "p95_ms": 17471.4
+    },
+    {
+     "t": 25.0,
+     "requests": 6,
+     "success_rate": 0.5,
+     "p95_ms": 9923.4
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 3.7,
+     "cpu_percent_max": 14.5,
+     "mem_mb_max": 18.5,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 228.4,
+     "cpu_percent_max": 255.1,
+     "mem_mb_max": 378.8,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 16.6,
+     "cpu_percent_max": 32.9,
+     "mem_mb_max": 47.5,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 21.6,
+     "cpu_percent_max": 57.2,
+     "mem_mb_max": 61.5,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 61.9,
+     "cpu_percent_max": 154.7,
+     "mem_mb_max": 45.6,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 132,
+    "rollbacks": 36,
+    "tuples_returned": 2531,
+    "tuples_fetched": 999,
+    "tuples_inserted": 21,
+    "tuples_updated": 79,
+    "blocks_hit": 2085,
+    "blocks_read": 0,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 9
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 88,
+     "mean_ms": 3254.4,
+     "p95_ms_bucket_upper_bound": 30000.0
+    },
+    "rag_duration_ms": {
+     "count": 153,
+     "mean_ms": 1590.2,
+     "p95_ms_bucket_upper_bound": 10000.0
+    },
+    "rag_duration_ms:extract": {
+     "count": 80,
+     "mean_ms": 2485.7,
+     "p95_ms_bucket_upper_bound": 10000.0
+    },
+    "rag_duration_ms:ingest": {
+     "count": 73,
+     "mean_ms": 608.7,
+     "p95_ms_bucket_upper_bound": 5000.0
+    },
+    "counters": {
+     "http_throttled_total:route=/knowledge/ingest,status=503": 7
+    }
+   }
+  },
+  {
+   "name": "rag_search",
+   "note": "embed (fake, ~10 ms) + Qdrant query",
+   "requests": 998,
+   "duration_seconds": 30.0,
+   "rps": 33.27,
+   "success_rps": 32.37,
+   "ok": 971,
+   "success_rate": 0.9729,
+   "error_rate": 0.0271,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 27,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 971,
+    "502": 27
+   },
+   "latency_ms": {
+    "min": 32.47,
+    "p50": 146.63,
+    "p95": 1623.06,
+    "p99": 10538.14,
+    "max": 12911.13,
+    "mean": 512.44
+   },
+   "ok_latency_ms": {
+    "p50": 139.03,
+    "p95": 925.49,
+    "p99": 3075.64
+   },
+   "scenario": "search",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 512,
+     "success_rate": 1.0,
+     "p95_ms": 297.2
+    },
+    {
+     "t": 5.0,
+     "requests": 376,
+     "success_rate": 0.971,
+     "p95_ms": 370.3
+    },
+    {
+     "t": 10.0,
+     "requests": 27,
+     "success_rate": 1.0,
+     "p95_ms": 3009.0
+    },
+    {
+     "t": 15.0,
+     "requests": 68,
+     "success_rate": 0.985,
+     "p95_ms": 3365.7
+    },
+    {
+     "t": 20.0,
+     "requests": 15,
+     "success_rate": 0.0,
+     "p95_ms": 11140.5
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 22.2,
+     "cpu_percent_max": 61.9,
+     "mem_mb_max": 19.9,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 180.4,
+     "cpu_percent_max": 232.7,
+     "mem_mb_max": 384.7,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 43.7,
+     "cpu_percent_max": 135.5,
+     "mem_mb_max": 46.9,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 18.8,
+     "cpu_percent_max": 67.0,
+     "mem_mb_max": 78.7,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 44.9,
+     "cpu_percent_max": 125.4,
+     "mem_mb_max": 43.9,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 49,
+    "rollbacks": 10,
+    "tuples_returned": 2050,
+    "tuples_fetched": 815,
+    "tuples_inserted": 34,
+    "tuples_updated": 28,
+    "blocks_hit": 1775,
+    "blocks_read": 0,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 1
+   },
+   "server_side": {
+    "counters": {
+     "http_throttled_total:route=/knowledge/ingest,status=503": -7
+    }
+   }
+  },
+  {
+   "name": "chat",
+   "note": "fake LLM 200 ms: intent call + profile-learning call per request",
+   "requests": 947,
+   "duration_seconds": 30.0,
+   "rps": 31.57,
+   "success_rps": 1.6,
+   "ok": 48,
+   "success_rate": 0.0507,
+   "error_rate": 0.9493,
+   "http_429": 0,
+   "http_503": 883,
+   "http_5xx_other": 16,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 48,
+    "502": 16,
+    "503": 883
+   },
+   "latency_ms": {
+    "min": 18.69,
+    "p50": 86.08,
+    "p95": 3951.97,
+    "p99": 7863.43,
+    "max": 8629.7,
+    "mean": 509.44
+   },
+   "ok_latency_ms": {
+    "p50": 4158.31,
+    "p95": 7005.74,
+    "p99": 7017.74
+   },
+   "scenario": "chat",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 16,
+     "success_rate": 1.0,
+     "p95_ms": 7017.7
+    },
+    {
+     "t": 5.0,
+     "requests": 16,
+     "success_rate": 1.0,
+     "p95_ms": 5217.7
+    },
+    {
+     "t": 10.0,
+     "requests": 31,
+     "success_rate": 0.516,
+     "p95_ms": 8618.9
+    },
+    {
+     "t": 15.0,
+     "requests": 1,
+     "success_rate": 0.0,
+     "p95_ms": 6806.3
+    },
+    {
+     "t": 20.0,
+     "requests": 335,
+     "success_rate": 0.0,
+     "p95_ms": 505.0
+    },
+    {
+     "t": 25.0,
+     "requests": 548,
+     "success_rate": 0.0,
+     "p95_ms": 483.5
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 17.3,
+     "cpu_percent_max": 58.5,
+     "mem_mb_max": 22.0,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 176.5,
+     "cpu_percent_max": 213.8,
+     "mem_mb_max": 306.3,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 38.5,
+     "cpu_percent_max": 62.3,
+     "mem_mb_max": 52.2,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 11.6,
+     "cpu_percent_max": 32.2,
+     "mem_mb_max": 124.4,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 44.6,
+     "cpu_percent_max": 111.0,
+     "mem_mb_max": 43.5,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 499,
+    "rollbacks": 243,
+    "tuples_returned": 13789,
+    "tuples_fetched": 12669,
+    "tuples_inserted": 140,
+    "tuples_updated": 0,
+    "blocks_hit": 23620,
+    "blocks_read": 8,
+    "cache_hit_ratio": 0.9997,
+    "connections_at_end": 3
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 24,
+     "mean_ms": 3197.0,
+     "p95_ms_bucket_upper_bound": 5000.0
+    },
+    "llm_duration_ms": {
+     "count": 32,
+     "mean_ms": 547.5,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "rag_duration_ms": {
+     "count": 16,
+     "mean_ms": 2284.9,
+     "p95_ms_bucket_upper_bound": 5000.0
+    },
+    "rag_duration_ms:search": {
+     "count": 16,
+     "mean_ms": 2284.9,
+     "p95_ms_bucket_upper_bound": 5000.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "agent",
+   "note": "single agent call (fake LLM 200 ms)",
+   "requests": 277,
+   "duration_seconds": 30.0,
+   "rps": 9.23,
+   "success_rps": 8.73,
+   "ok": 262,
+   "success_rate": 0.9458,
+   "error_rate": 0.0542,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 15,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 262,
+    "502": 15
+   },
+   "latency_ms": {
+    "min": 229.05,
+    "p50": 1049.92,
+    "p95": 8347.22,
+    "p99": 8382.8,
+    "max": 9260.0,
+    "mean": 1783.28
+   },
+   "ok_latency_ms": {
+    "p50": 1022.19,
+    "p95": 8347.22,
+    "p99": 8382.8
+   },
+   "scenario": "agent",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 16,
+     "success_rate": 1.0,
+     "p95_ms": 9260.0
+    },
+    {
+     "t": 5.0,
+     "requests": 16,
+     "success_rate": 1.0,
+     "p95_ms": 2645.5
+    },
+    {
+     "t": 10.0,
+     "requests": 73,
+     "success_rate": 1.0,
+     "p95_ms": 1585.8
+    },
+    {
+     "t": 15.0,
+     "requests": 91,
+     "success_rate": 1.0,
+     "p95_ms": 1657.8
+    },
+    {
+     "t": 20.0,
+     "requests": 35,
+     "success_rate": 0.571,
+     "p95_ms": 6038.1
+    },
+    {
+     "t": 25.0,
+     "requests": 46,
+     "success_rate": 1.0,
+     "p95_ms": 2275.0
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 15.1,
+     "cpu_percent_max": 42.4,
+     "mem_mb_max": 29.8,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 157.3,
+     "cpu_percent_max": 208.5,
+     "mem_mb_max": 315.8,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 35.9,
+     "cpu_percent_max": 68.3,
+     "mem_mb_max": 55.4,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 8.7,
+     "cpu_percent_max": 30.8,
+     "mem_mb_max": 72.6,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 28.2,
+     "cpu_percent_max": 96.2,
+     "mem_mb_max": 19.8,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 871,
+    "rollbacks": 287,
+    "tuples_returned": 15917,
+    "tuples_fetched": 10921,
+    "tuples_inserted": 289,
+    "tuples_updated": 46,
+    "blocks_hit": 24422,
+    "blocks_read": 0,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 6
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 220,
+     "mean_ms": 1216.0,
+     "p95_ms_bucket_upper_bound": 5000.0
+    },
+    "llm_duration_ms": {
+     "count": 215,
+     "mean_ms": 474.7,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "team",
+   "note": "three sequential agent calls + decision engine (fake LLM 200 ms)",
+   "requests": 234,
+   "duration_seconds": 30.0,
+   "rps": 7.8,
+   "success_rps": 7.8,
+   "ok": 234,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 234
+   },
+   "latency_ms": {
+    "min": 524.17,
+    "p50": 729.48,
+    "p95": 2526.97,
+    "p99": 5382.01,
+    "max": 5679.83,
+    "mean": 1042.08
+   },
+   "ok_latency_ms": {
+    "p50": 729.48,
+    "p95": 2526.97,
+    "p99": 5382.01
+   },
+   "scenario": "team",
+   "concurrency": 8,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 55,
+     "success_rate": 1.0,
+     "p95_ms": 1068.4
+    },
+    {
+     "t": 5.0,
+     "requests": 58,
+     "success_rate": 1.0,
+     "p95_ms": 763.5
+    },
+    {
+     "t": 10.0,
+     "requests": 27,
+     "success_rate": 1.0,
+     "p95_ms": 5518.3
+    },
+    {
+     "t": 15.0,
+     "requests": 17,
+     "success_rate": 1.0,
+     "p95_ms": 2497.4
+    },
+    {
+     "t": 20.0,
+     "requests": 24,
+     "success_rate": 1.0,
+     "p95_ms": 2665.9
+    },
+    {
+     "t": 25.0,
+     "requests": 53,
+     "success_rate": 1.0,
+     "p95_ms": 1008.3
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 7.0,
+     "cpu_percent_max": 23.0,
+     "mem_mb_max": 33.7,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 79.6,
+     "cpu_percent_max": 159.3,
+     "mem_mb_max": 358.2,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 19.6,
+     "cpu_percent_max": 41.6,
+     "mem_mb_max": 43.4,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 9.7,
+     "cpu_percent_max": 29.7,
+     "mem_mb_max": 73.3,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 19.0,
+     "cpu_percent_max": 69.3,
+     "mem_mb_max": 21.1,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 2205,
+    "rollbacks": 727,
+    "tuples_returned": 8644,
+    "tuples_fetched": 5696,
+    "tuples_inserted": 729,
+    "tuples_updated": 104,
+    "blocks_hit": 17978,
+    "blocks_read": 6,
+    "cache_hit_ratio": 0.9997,
+    "connections_at_end": 8
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 240,
+     "mean_ms": 982.3,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "llm_duration_ms": {
+     "count": 702,
+     "mean_ms": 261.5,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "mixed",
+   "note": "20% health, 30% search, 30% chat, 10% ingest, 5% agent, 5% team",
+   "requests": 200,
+   "duration_seconds": 30.0,
+   "rps": 6.67,
+   "success_rps": 6.03,
+   "ok": 181,
+   "success_rate": 0.905,
+   "error_rate": 0.095,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 18,
+   "transport_errors": 1,
+   "status_counts": {
+    "200": 181,
+    "502": 18,
+    "error:RemoteProtocolError": 1
+   },
+   "latency_ms": {
+    "min": 31.79,
+    "p50": 3237.6,
+    "p95": 10052.98,
+    "p99": 10544.59,
+    "max": 11277.76,
+    "mean": 3750.3
+   },
+   "ok_latency_ms": {
+    "p50": 2505.6,
+    "p95": 8373.07,
+    "p99": 10155.95
+   },
+   "scenario": "mixed",
+   "concurrency": 24,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 32,
+     "success_rate": 1.0,
+     "p95_ms": 10155.9
+    },
+    {
+     "t": 5.0,
+     "requests": 40,
+     "success_rate": 0.75,
+     "p95_ms": 10544.6
+    },
+    {
+     "t": 10.0,
+     "requests": 20,
+     "success_rate": 0.55,
+     "p95_ms": 9516.0
+    },
+    {
+     "t": 15.0,
+     "requests": 36,
+     "success_rate": 1.0,
+     "p95_ms": 5819.5
+    },
+    {
+     "t": 20.0,
+     "requests": 21,
+     "success_rate": 1.0,
+     "p95_ms": 5666.3
+    },
+    {
+     "t": 25.0,
+     "requests": 51,
+     "success_rate": 1.0,
+     "p95_ms": 5214.5
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 19.0,
+     "cpu_percent_max": 66.6,
+     "mem_mb_max": 48.7,
+     "samples": 6
+    },
+    "api": {
+     "cpu_percent_avg": 177.8,
+     "cpu_percent_max": 256.1,
+     "mem_mb_max": 348.6,
+     "samples": 6
+    },
+    "db": {
+     "cpu_percent_avg": 25.4,
+     "cpu_percent_max": 52.5,
+     "mem_mb_max": 48.6,
+     "samples": 6
+    },
+    "qdrant": {
+     "cpu_percent_avg": 18.9,
+     "cpu_percent_max": 42.8,
+     "mem_mb_max": 114.2,
+     "samples": 6
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 32.5,
+     "cpu_percent_max": 76.9,
+     "mem_mb_max": 25.5,
+     "samples": 6
+    }
+   },
+   "postgres": {
+    "commits": 698,
+    "rollbacks": 310,
+    "tuples_returned": 31649,
+    "tuples_fetched": 11238,
+    "tuples_inserted": 213,
+    "tuples_updated": 85,
+    "blocks_hit": 23297,
+    "blocks_read": 0,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 6
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 148,
+     "mean_ms": 2010.0,
+     "p95_ms_bucket_upper_bound": 10000.0
+    },
+    "llm_duration_ms": {
+     "count": 120,
+     "mean_ms": 424.9,
+     "p95_ms_bucket_upper_bound": 1000.0
+    },
+    "rag_duration_ms": {
+     "count": 105,
+     "mean_ms": 843.1,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "rag_duration_ms:extract": {
+     "count": 10,
+     "mean_ms": 2233.3,
+     "p95_ms_bucket_upper_bound": 5000.0
+    },
+    "rag_duration_ms:ingest": {
+     "count": 10,
+     "mean_ms": 1182.0,
+     "p95_ms_bucket_upper_bound": 5000.0
+    },
+    "rag_duration_ms:search": {
+     "count": 85,
+     "mean_ms": 639.6,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "thread_starvation",
+   "note": "FastAPI runs sync handlers in a 40-thread pool per worker (2 workers = 80). 120 chats each holding a thread for ~16 s (two 8 s model calls) saturate it.",
+   "chat": {
+    "requests": 200,
+    "rps": 5.0,
+    "success_rate": 1.0,
+    "latency_ms": {
+     "min": 17709.37,
+     "p50": 32580.82,
+     "p95": 49757.31,
+     "p99": 50660.69,
+     "max": 50821.01,
+     "mean": 33086.81
+    },
+    "status_counts": {
+     "200": 200
+    }
+   },
+   "liveness_probe_during_saturation": {
+    "requests": 1415,
+    "success_rate": 1.0,
+    "latency_ms": {
+     "min": 2.25,
+     "p50": 6.17,
+     "p95": 56.65,
+     "p99": 555.91,
+     "max": 5924.25,
+     "mean": 31.21
+    },
+    "status_counts": {
+     "200": 1415
+    }
+   }
+  },
+  {
+   "name": "ab1_legacy_uvicorn_cli_health",
+   "note": "A/B round 1, variant legacy_uvicorn_cli",
+   "requests": 1085,
+   "duration_seconds": 30.0,
+   "rps": 36.17,
+   "success_rps": 35.5,
+   "ok": 1065,
+   "success_rate": 0.9816,
+   "error_rate": 0.0184,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 20,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 1065,
+    "502": 20
+   },
+   "latency_ms": {
+    "min": 26.73,
+    "p50": 538.59,
+    "p95": 9388.73,
+    "p99": 15058.21,
+    "max": 16156.99,
+    "mean": 1875.51
+   },
+   "ok_latency_ms": {
+    "p50": 500.81,
+    "p95": 9386.52,
+    "p99": 15058.21
+   },
+   "scenario": "health",
+   "concurrency": 64,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 415,
+     "success_rate": 0.993,
+     "p95_ms": 4016.0
+    },
+    {
+     "t": 5.0,
+     "requests": 166,
+     "success_rate": 0.958,
+     "p95_ms": 9484.7
+    },
+    {
+     "t": 10.0,
+     "requests": 262,
+     "success_rate": 1.0,
+     "p95_ms": 1658.0
+    },
+    {
+     "t": 15.0,
+     "requests": 142,
+     "success_rate": 1.0,
+     "p95_ms": 15848.0
+    },
+    {
+     "t": 20.0,
+     "requests": 90,
+     "success_rate": 0.889,
+     "p95_ms": 10918.8
+    },
+    {
+     "t": 25.0,
+     "requests": 10,
+     "success_rate": 1.0,
+     "p95_ms": 3550.5
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 17.9,
+     "cpu_percent_max": 52.9,
+     "mem_mb_max": 38.2,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 89.1,
+     "cpu_percent_max": 171.7,
+     "mem_mb_max": 324.0,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 19.8,
+     "cpu_percent_max": 87.6,
+     "mem_mb_max": 23.2,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 3.4,
+     "cpu_percent_max": 26.1,
+     "mem_mb_max": 108.8,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 20.3,
+     "cpu_percent_max": 98.7,
+     "mem_mb_max": 23.6,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab1_legacy_uvicorn_cli_search",
+   "note": "A/B round 1, variant legacy_uvicorn_cli",
+   "requests": 4857,
+   "duration_seconds": 30.0,
+   "rps": 161.9,
+   "success_rps": 161.9,
+   "ok": 4857,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 4857
+   },
+   "latency_ms": {
+    "min": 25.42,
+    "p50": 82.56,
+    "p95": 170.8,
+    "p99": 490.14,
+    "max": 700.22,
+    "mean": 98.78
+   },
+   "ok_latency_ms": {
+    "p50": 82.56,
+    "p95": 170.8,
+    "p99": 490.14
+   },
+   "scenario": "search",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 664,
+     "success_rate": 1.0,
+     "p95_ms": 353.5
+    },
+    {
+     "t": 5.0,
+     "requests": 892,
+     "success_rate": 1.0,
+     "p95_ms": 156.3
+    },
+    {
+     "t": 10.0,
+     "requests": 803,
+     "success_rate": 1.0,
+     "p95_ms": 166.4
+    },
+    {
+     "t": 15.0,
+     "requests": 855,
+     "success_rate": 1.0,
+     "p95_ms": 169.5
+    },
+    {
+     "t": 20.0,
+     "requests": 827,
+     "success_rate": 1.0,
+     "p95_ms": 177.7
+    },
+    {
+     "t": 25.0,
+     "requests": 816,
+     "success_rate": 1.0,
+     "p95_ms": 145.3
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 10.8,
+     "cpu_percent_max": 14.3,
+     "mem_mb_max": 50.9,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 165.5,
+     "cpu_percent_max": 198.3,
+     "mem_mb_max": 357.0,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 1.4,
+     "cpu_percent_max": 8.0,
+     "mem_mb_max": 31.0,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 16.2,
+     "cpu_percent_max": 39.8,
+     "mem_mb_max": 65.7,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 31.1,
+     "cpu_percent_max": 68.7,
+     "mem_mb_max": 39.4,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab1_legacy_uvicorn_cli_chat",
+   "note": "A/B round 1, variant legacy_uvicorn_cli",
+   "requests": 950,
+   "duration_seconds": 30.0,
+   "rps": 31.67,
+   "success_rps": 31.67,
+   "ok": 950,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 950
+   },
+   "latency_ms": {
+    "min": 357.08,
+    "p50": 491.75,
+    "p95": 627.08,
+    "p99": 939.79,
+    "max": 1092.62,
+    "mean": 504.23
+   },
+   "ok_latency_ms": {
+    "p50": 491.75,
+    "p95": 627.08,
+    "p99": 939.79
+   },
+   "scenario": "chat",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 163,
+     "success_rate": 1.0,
+     "p95_ms": 566.0
+    },
+    {
+     "t": 5.0,
+     "requests": 171,
+     "success_rate": 1.0,
+     "p95_ms": 548.1
+    },
+    {
+     "t": 10.0,
+     "requests": 154,
+     "success_rate": 1.0,
+     "p95_ms": 659.7
+    },
+    {
+     "t": 15.0,
+     "requests": 144,
+     "success_rate": 1.0,
+     "p95_ms": 743.5
+    },
+    {
+     "t": 20.0,
+     "requests": 165,
+     "success_rate": 1.0,
+     "p95_ms": 559.0
+    },
+    {
+     "t": 25.0,
+     "requests": 153,
+     "success_rate": 1.0,
+     "p95_ms": 922.4
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 2.7,
+     "cpu_percent_max": 4.0,
+     "mem_mb_max": 35.6,
+     "samples": 9
+    },
+    "api": {
+     "cpu_percent_avg": 75.2,
+     "cpu_percent_max": 129.3,
+     "mem_mb_max": 360.6,
+     "samples": 9
+    },
+    "db": {
+     "cpu_percent_avg": 12.2,
+     "cpu_percent_max": 25.2,
+     "mem_mb_max": 55.4,
+     "samples": 9
+    },
+    "qdrant": {
+     "cpu_percent_avg": 4.3,
+     "cpu_percent_max": 7.3,
+     "mem_mb_max": 60.7,
+     "samples": 9
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 21.8,
+     "cpu_percent_max": 36.9,
+     "mem_mb_max": 39.8,
+     "samples": 9
+    }
+   }
+  },
+  {
+   "name": "ab1_legacy_uvicorn_cli_mixed",
+   "note": "A/B round 1, variant legacy_uvicorn_cli",
+   "requests": 1372,
+   "duration_seconds": 30.0,
+   "rps": 45.73,
+   "success_rps": 45.73,
+   "ok": 1372,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 1372
+   },
+   "latency_ms": {
+    "min": 34.73,
+    "p50": 347.01,
+    "p95": 1434.18,
+    "p99": 1839.69,
+    "max": 2160.65,
+    "mean": 514.62
+   },
+   "ok_latency_ms": {
+    "p50": 347.01,
+    "p95": 1434.18,
+    "p99": 1839.69
+   },
+   "scenario": "mixed",
+   "concurrency": 24,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 216,
+     "success_rate": 1.0,
+     "p95_ms": 1340.5
+    },
+    {
+     "t": 5.0,
+     "requests": 208,
+     "success_rate": 1.0,
+     "p95_ms": 1678.2
+    },
+    {
+     "t": 10.0,
+     "requests": 222,
+     "success_rate": 1.0,
+     "p95_ms": 1726.3
+    },
+    {
+     "t": 15.0,
+     "requests": 245,
+     "success_rate": 1.0,
+     "p95_ms": 1359.8
+    },
+    {
+     "t": 20.0,
+     "requests": 238,
+     "success_rate": 1.0,
+     "p95_ms": 1386.6
+    },
+    {
+     "t": 25.0,
+     "requests": 243,
+     "success_rate": 1.0,
+     "p95_ms": 1333.6
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 5.6,
+     "cpu_percent_max": 7.3,
+     "mem_mb_max": 37.0,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 203.0,
+     "cpu_percent_max": 212.5,
+     "mem_mb_max": 375.8,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 18.6,
+     "cpu_percent_max": 23.9,
+     "mem_mb_max": 61.4,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 7.9,
+     "cpu_percent_max": 11.2,
+     "mem_mb_max": 92.2,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 30.7,
+     "cpu_percent_max": 67.3,
+     "mem_mb_max": 43.2,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab1_app_serve_health",
+   "note": "A/B round 1, variant app_serve",
+   "requests": 12252,
+   "duration_seconds": 30.0,
+   "rps": 408.4,
+   "success_rps": 408.4,
+   "ok": 12252,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 12252
+   },
+   "latency_ms": {
+    "min": 8.06,
+    "p50": 87.58,
+    "p95": 504.55,
+    "p99": 1161.78,
+    "max": 3545.15,
+    "mean": 155.54
+   },
+   "ok_latency_ms": {
+    "p50": 87.58,
+    "p95": 504.55,
+    "p99": 1161.78
+   },
+   "scenario": "health",
+   "concurrency": 64,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 2172,
+     "success_rate": 1.0,
+     "p95_ms": 454.8
+    },
+    {
+     "t": 5.0,
+     "requests": 3094,
+     "success_rate": 1.0,
+     "p95_ms": 297.4
+    },
+    {
+     "t": 10.0,
+     "requests": 2942,
+     "success_rate": 1.0,
+     "p95_ms": 318.3
+    },
+    {
+     "t": 15.0,
+     "requests": 1356,
+     "success_rate": 1.0,
+     "p95_ms": 986.2
+    },
+    {
+     "t": 20.0,
+     "requests": 1151,
+     "success_rate": 1.0,
+     "p95_ms": 1088.4
+    },
+    {
+     "t": 25.0,
+     "requests": 1537,
+     "success_rate": 1.0,
+     "p95_ms": 594.6
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 12.2,
+     "cpu_percent_max": 23.3,
+     "mem_mb_max": 57.3,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 49.8,
+     "cpu_percent_max": 105.8,
+     "mem_mb_max": 302.6,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 0.0,
+     "cpu_percent_max": 0.0,
+     "mem_mb_max": 35.6,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 2.4,
+     "cpu_percent_max": 5.1,
+     "mem_mb_max": 58.7,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 8.0,
+     "cpu_percent_max": 21.9,
+     "mem_mb_max": 33.8,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab1_app_serve_search",
+   "note": "A/B round 1, variant app_serve",
+   "requests": 5039,
+   "duration_seconds": 30.0,
+   "rps": 167.97,
+   "success_rps": 167.97,
+   "ok": 5039,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 5039
+   },
+   "latency_ms": {
+    "min": 19.94,
+    "p50": 85.49,
+    "p95": 176.71,
+    "p99": 498.82,
+    "max": 904.08,
+    "mean": 95.21
+   },
+   "ok_latency_ms": {
+    "p50": 85.49,
+    "p95": 176.71,
+    "p99": 498.82
+   },
+   "scenario": "search",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 869,
+     "success_rate": 1.0,
+     "p95_ms": 168.1
+    },
+    {
+     "t": 5.0,
+     "requests": 853,
+     "success_rate": 1.0,
+     "p95_ms": 177.7
+    },
+    {
+     "t": 10.0,
+     "requests": 829,
+     "success_rate": 1.0,
+     "p95_ms": 182.1
+    },
+    {
+     "t": 15.0,
+     "requests": 890,
+     "success_rate": 1.0,
+     "p95_ms": 163.4
+    },
+    {
+     "t": 20.0,
+     "requests": 751,
+     "success_rate": 1.0,
+     "p95_ms": 196.2
+    },
+    {
+     "t": 25.0,
+     "requests": 847,
+     "success_rate": 1.0,
+     "p95_ms": 171.7
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 11.2,
+     "cpu_percent_max": 11.8,
+     "mem_mb_max": 54.9,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 202.7,
+     "cpu_percent_max": 209.1,
+     "mem_mb_max": 335.9,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 0.0,
+     "cpu_percent_max": 0.1,
+     "mem_mb_max": 37.7,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 13.6,
+     "cpu_percent_max": 15.2,
+     "mem_mb_max": 58.5,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 26.6,
+     "cpu_percent_max": 29.9,
+     "mem_mb_max": 38.0,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab1_app_serve_chat",
+   "note": "A/B round 1, variant app_serve",
+   "requests": 974,
+   "duration_seconds": 30.0,
+   "rps": 32.47,
+   "success_rps": 32.47,
+   "ok": 974,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 974
+   },
+   "latency_ms": {
+    "min": 349.71,
+    "p50": 474.18,
+    "p95": 670.87,
+    "p99": 830.92,
+    "max": 916.59,
+    "mean": 491.73
+   },
+   "ok_latency_ms": {
+    "p50": 474.18,
+    "p95": 670.87,
+    "p99": 830.92
+   },
+   "scenario": "chat",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 165,
+     "success_rate": 1.0,
+     "p95_ms": 734.4
+    },
+    {
+     "t": 5.0,
+     "requests": 156,
+     "success_rate": 1.0,
+     "p95_ms": 818.4
+    },
+    {
+     "t": 10.0,
+     "requests": 172,
+     "success_rate": 1.0,
+     "p95_ms": 565.8
+    },
+    {
+     "t": 15.0,
+     "requests": 159,
+     "success_rate": 1.0,
+     "p95_ms": 613.5
+    },
+    {
+     "t": 20.0,
+     "requests": 167,
+     "success_rate": 1.0,
+     "p95_ms": 797.9
+    },
+    {
+     "t": 25.0,
+     "requests": 155,
+     "success_rate": 1.0,
+     "p95_ms": 701.3
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 3.7,
+     "cpu_percent_max": 4.8,
+     "mem_mb_max": 36.2,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 106.2,
+     "cpu_percent_max": 142.7,
+     "mem_mb_max": 333.1,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 21.6,
+     "cpu_percent_max": 43.1,
+     "mem_mb_max": 38.3,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 4.6,
+     "cpu_percent_max": 5.2,
+     "mem_mb_max": 57.3,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 38.3,
+     "cpu_percent_max": 69.7,
+     "mem_mb_max": 46.9,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab1_app_serve_mixed",
+   "note": "A/B round 1, variant app_serve",
+   "requests": 860,
+   "duration_seconds": 30.0,
+   "rps": 28.67,
+   "success_rps": 28.57,
+   "ok": 857,
+   "success_rate": 0.9965,
+   "error_rate": 0.0035,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 3,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 857,
+    "500": 2,
+    "502": 1
+   },
+   "latency_ms": {
+    "min": 2.04,
+    "p50": 295.78,
+    "p95": 1915.71,
+    "p99": 14025.76,
+    "max": 14332.99,
+    "mean": 851.35
+   },
+   "ok_latency_ms": {
+    "p50": 295.78,
+    "p95": 1909.03,
+    "p99": 14025.76
+   },
+   "scenario": "mixed",
+   "concurrency": 24,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 259,
+     "success_rate": 1.0,
+     "p95_ms": 1305.4
+    },
+    {
+     "t": 5.0,
+     "requests": 269,
+     "success_rate": 1.0,
+     "p95_ms": 1359.7
+    },
+    {
+     "t": 10.0,
+     "requests": 206,
+     "success_rate": 1.0,
+     "p95_ms": 1679.7
+    },
+    {
+     "t": 15.0,
+     "requests": 110,
+     "success_rate": 0.982,
+     "p95_ms": 14127.9
+    },
+    {
+     "t": 20.0,
+     "requests": 6,
+     "success_rate": 1.0,
+     "p95_ms": 8449.9
+    },
+    {
+     "t": 25.0,
+     "requests": 10,
+     "success_rate": 0.9,
+     "p95_ms": 6143.2
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 5.0,
+     "cpu_percent_max": 9.7,
+     "mem_mb_max": 40.7,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 161.4,
+     "cpu_percent_max": 214.1,
+     "mem_mb_max": 370.6,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 24.2,
+     "cpu_percent_max": 48.3,
+     "mem_mb_max": 50.6,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 9.5,
+     "cpu_percent_max": 27.1,
+     "mem_mb_max": 61.0,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 10.9,
+     "cpu_percent_max": 16.6,
+     "mem_mb_max": 45.3,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab2_legacy_uvicorn_cli_health",
+   "note": "A/B round 2, variant legacy_uvicorn_cli",
+   "requests": 3870,
+   "duration_seconds": 30.0,
+   "rps": 129.0,
+   "success_rps": 129.0,
+   "ok": 3870,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 3870
+   },
+   "latency_ms": {
+    "min": 6.83,
+    "p50": 317.67,
+    "p95": 1529.94,
+    "p99": 2499.54,
+    "max": 4219.76,
+    "mean": 493.44
+   },
+   "ok_latency_ms": {
+    "p50": 317.67,
+    "p95": 1529.94,
+    "p99": 2499.54
+   },
+   "scenario": "health",
+   "concurrency": 64,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 606,
+     "success_rate": 1.0,
+     "p95_ms": 1743.1
+    },
+    {
+     "t": 5.0,
+     "requests": 530,
+     "success_rate": 1.0,
+     "p95_ms": 1821.3
+    },
+    {
+     "t": 10.0,
+     "requests": 791,
+     "success_rate": 1.0,
+     "p95_ms": 1261.8
+    },
+    {
+     "t": 15.0,
+     "requests": 768,
+     "success_rate": 1.0,
+     "p95_ms": 1311.3
+    },
+    {
+     "t": 20.0,
+     "requests": 623,
+     "success_rate": 1.0,
+     "p95_ms": 1669.2
+    },
+    {
+     "t": 25.0,
+     "requests": 552,
+     "success_rate": 1.0,
+     "p95_ms": 1542.9
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 13.5,
+     "cpu_percent_max": 19.8,
+     "mem_mb_max": 40.2,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 18.8,
+     "cpu_percent_max": 31.0,
+     "mem_mb_max": 315.4,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 0.3,
+     "cpu_percent_max": 1.2,
+     "mem_mb_max": 38.8,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 0.1,
+     "cpu_percent_max": 0.3,
+     "mem_mb_max": 60.5,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 0.3,
+     "cpu_percent_max": 0.5,
+     "mem_mb_max": 42.0,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab2_legacy_uvicorn_cli_search",
+   "note": "A/B round 2, variant legacy_uvicorn_cli",
+   "requests": 4997,
+   "duration_seconds": 30.0,
+   "rps": 166.57,
+   "success_rps": 166.57,
+   "ok": 4997,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 4997
+   },
+   "latency_ms": {
+    "min": 22.66,
+    "p50": 81.99,
+    "p95": 169.37,
+    "p99": 348.87,
+    "max": 710.41,
+    "mean": 95.97
+   },
+   "ok_latency_ms": {
+    "p50": 81.99,
+    "p95": 169.37,
+    "p99": 348.87
+   },
+   "scenario": "search",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 814,
+     "success_rate": 1.0,
+     "p95_ms": 165.0
+    },
+    {
+     "t": 5.0,
+     "requests": 591,
+     "success_rate": 1.0,
+     "p95_ms": 305.2
+    },
+    {
+     "t": 10.0,
+     "requests": 865,
+     "success_rate": 1.0,
+     "p95_ms": 126.7
+    },
+    {
+     "t": 15.0,
+     "requests": 869,
+     "success_rate": 1.0,
+     "p95_ms": 161.4
+    },
+    {
+     "t": 20.0,
+     "requests": 937,
+     "success_rate": 1.0,
+     "p95_ms": 118.8
+    },
+    {
+     "t": 25.0,
+     "requests": 921,
+     "success_rate": 1.0,
+     "p95_ms": 127.9
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 9.4,
+     "cpu_percent_max": 13.6,
+     "mem_mb_max": 42.9,
+     "samples": 9
+    },
+    "api": {
+     "cpu_percent_avg": 164.3,
+     "cpu_percent_max": 201.1,
+     "mem_mb_max": 346.2,
+     "samples": 9
+    },
+    "db": {
+     "cpu_percent_avg": 1.5,
+     "cpu_percent_max": 5.6,
+     "mem_mb_max": 37.9,
+     "samples": 9
+    },
+    "qdrant": {
+     "cpu_percent_avg": 11.6,
+     "cpu_percent_max": 15.4,
+     "mem_mb_max": 79.4,
+     "samples": 9
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 25.4,
+     "cpu_percent_max": 47.8,
+     "mem_mb_max": 42.6,
+     "samples": 9
+    }
+   }
+  },
+  {
+   "name": "ab2_legacy_uvicorn_cli_chat",
+   "note": "A/B round 2, variant legacy_uvicorn_cli",
+   "requests": 898,
+   "duration_seconds": 30.0,
+   "rps": 29.93,
+   "success_rps": 29.93,
+   "ok": 898,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 898
+   },
+   "latency_ms": {
+    "min": 361.08,
+    "p50": 508.46,
+    "p95": 709.22,
+    "p99": 1533.47,
+    "max": 1723.82,
+    "mean": 535.04
+   },
+   "ok_latency_ms": {
+    "p50": 508.46,
+    "p95": 709.22,
+    "p99": 1533.47
+   },
+   "scenario": "chat",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 158,
+     "success_rate": 1.0,
+     "p95_ms": 614.2
+    },
+    {
+     "t": 5.0,
+     "requests": 154,
+     "success_rate": 1.0,
+     "p95_ms": 726.4
+    },
+    {
+     "t": 10.0,
+     "requests": 121,
+     "success_rate": 1.0,
+     "p95_ms": 1547.2
+    },
+    {
+     "t": 15.0,
+     "requests": 162,
+     "success_rate": 1.0,
+     "p95_ms": 572.8
+    },
+    {
+     "t": 20.0,
+     "requests": 157,
+     "success_rate": 1.0,
+     "p95_ms": 645.9
+    },
+    {
+     "t": 25.0,
+     "requests": 146,
+     "success_rate": 1.0,
+     "p95_ms": 867.9
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 4.1,
+     "cpu_percent_max": 5.6,
+     "mem_mb_max": 53.2,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 94.4,
+     "cpu_percent_max": 112.0,
+     "mem_mb_max": 347.3,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 17.8,
+     "cpu_percent_max": 28.0,
+     "mem_mb_max": 50.7,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 4.4,
+     "cpu_percent_max": 5.6,
+     "mem_mb_max": 64.4,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 15.9,
+     "cpu_percent_max": 28.3,
+     "mem_mb_max": 46.7,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab2_legacy_uvicorn_cli_mixed",
+   "note": "A/B round 2, variant legacy_uvicorn_cli",
+   "requests": 1250,
+   "duration_seconds": 30.0,
+   "rps": 41.67,
+   "success_rps": 41.67,
+   "ok": 1250,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 1250
+   },
+   "latency_ms": {
+    "min": 34.23,
+    "p50": 336.05,
+    "p95": 1573.61,
+    "p99": 2465.83,
+    "max": 3628.89,
+    "mean": 576.37
+   },
+   "ok_latency_ms": {
+    "p50": 336.05,
+    "p95": 1573.61,
+    "p99": 2465.83
+   },
+   "scenario": "mixed",
+   "concurrency": 24,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 227,
+     "success_rate": 1.0,
+     "p95_ms": 1413.4
+    },
+    {
+     "t": 5.0,
+     "requests": 198,
+     "success_rate": 1.0,
+     "p95_ms": 1889.2
+    },
+    {
+     "t": 10.0,
+     "requests": 248,
+     "success_rate": 1.0,
+     "p95_ms": 1165.7
+    },
+    {
+     "t": 15.0,
+     "requests": 199,
+     "success_rate": 1.0,
+     "p95_ms": 2385.4
+    },
+    {
+     "t": 20.0,
+     "requests": 193,
+     "success_rate": 1.0,
+     "p95_ms": 1745.1
+    },
+    {
+     "t": 25.0,
+     "requests": 185,
+     "success_rate": 1.0,
+     "p95_ms": 1590.8
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 5.6,
+     "cpu_percent_max": 8.1,
+     "mem_mb_max": 55.9,
+     "samples": 9
+    },
+    "api": {
+     "cpu_percent_avg": 177.5,
+     "cpu_percent_max": 213.5,
+     "mem_mb_max": 358.6,
+     "samples": 9
+    },
+    "db": {
+     "cpu_percent_avg": 16.9,
+     "cpu_percent_max": 26.8,
+     "mem_mb_max": 55.2,
+     "samples": 9
+    },
+    "qdrant": {
+     "cpu_percent_avg": 7.5,
+     "cpu_percent_max": 16.4,
+     "mem_mb_max": 104.5,
+     "samples": 9
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 14.4,
+     "cpu_percent_max": 27.2,
+     "mem_mb_max": 34.3,
+     "samples": 9
+    }
+   }
+  },
+  {
+   "name": "ab2_app_serve_health",
+   "note": "A/B round 2, variant app_serve",
+   "requests": 11423,
+   "duration_seconds": 30.0,
+   "rps": 380.77,
+   "success_rps": 380.77,
+   "ok": 11423,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 11423
+   },
+   "latency_ms": {
+    "min": 8.33,
+    "p50": 92.38,
+    "p95": 579.12,
+    "p99": 1188.21,
+    "max": 3523.07,
+    "mean": 167.12
+   },
+   "ok_latency_ms": {
+    "p50": 92.38,
+    "p95": 579.12,
+    "p99": 1188.21
+   },
+   "scenario": "health",
+   "concurrency": 64,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 1075,
+     "success_rate": 1.0,
+     "p95_ms": 932.1
+    },
+    {
+     "t": 5.0,
+     "requests": 2329,
+     "success_rate": 1.0,
+     "p95_ms": 374.7
+    },
+    {
+     "t": 10.0,
+     "requests": 3220,
+     "success_rate": 1.0,
+     "p95_ms": 283.3
+    },
+    {
+     "t": 15.0,
+     "requests": 2971,
+     "success_rate": 1.0,
+     "p95_ms": 342.4
+    },
+    {
+     "t": 20.0,
+     "requests": 1032,
+     "success_rate": 1.0,
+     "p95_ms": 989.2
+    },
+    {
+     "t": 25.0,
+     "requests": 796,
+     "success_rate": 1.0,
+     "p95_ms": 1261.0
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 13.2,
+     "cpu_percent_max": 22.0,
+     "mem_mb_max": 56.3,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 34.4,
+     "cpu_percent_max": 60.8,
+     "mem_mb_max": 319.5,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 0.0,
+     "cpu_percent_max": 0.0,
+     "mem_mb_max": 24.8,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 0.2,
+     "cpu_percent_max": 0.6,
+     "mem_mb_max": 59.5,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 0.2,
+     "cpu_percent_max": 0.3,
+     "mem_mb_max": 33.3,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab2_app_serve_search",
+   "note": "A/B round 2, variant app_serve",
+   "requests": 5008,
+   "duration_seconds": 30.0,
+   "rps": 166.93,
+   "success_rps": 166.93,
+   "ok": 5008,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 5008
+   },
+   "latency_ms": {
+    "min": 20.88,
+    "p50": 86.94,
+    "p95": 182.34,
+    "p99": 401.64,
+    "max": 864.42,
+    "mean": 95.82
+   },
+   "ok_latency_ms": {
+    "p50": 86.94,
+    "p95": 182.34,
+    "p99": 401.64
+   },
+   "scenario": "search",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 892,
+     "success_rate": 1.0,
+     "p95_ms": 168.8
+    },
+    {
+     "t": 5.0,
+     "requests": 819,
+     "success_rate": 1.0,
+     "p95_ms": 185.3
+    },
+    {
+     "t": 10.0,
+     "requests": 681,
+     "success_rate": 1.0,
+     "p95_ms": 223.8
+    },
+    {
+     "t": 15.0,
+     "requests": 793,
+     "success_rate": 1.0,
+     "p95_ms": 201.5
+    },
+    {
+     "t": 20.0,
+     "requests": 933,
+     "success_rate": 1.0,
+     "p95_ms": 154.9
+    },
+    {
+     "t": 25.0,
+     "requests": 890,
+     "success_rate": 1.0,
+     "p95_ms": 175.7
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 10.9,
+     "cpu_percent_max": 13.4,
+     "mem_mb_max": 50.2,
+     "samples": 8
+    },
+    "api": {
+     "cpu_percent_avg": 207.4,
+     "cpu_percent_max": 212.0,
+     "mem_mb_max": 346.8,
+     "samples": 8
+    },
+    "db": {
+     "cpu_percent_avg": 6.8,
+     "cpu_percent_max": 15.7,
+     "mem_mb_max": 28.5,
+     "samples": 8
+    },
+    "qdrant": {
+     "cpu_percent_avg": 19.6,
+     "cpu_percent_max": 25.4,
+     "mem_mb_max": 60.8,
+     "samples": 8
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 35.1,
+     "cpu_percent_max": 55.6,
+     "mem_mb_max": 43.1,
+     "samples": 8
+    }
+   }
+  },
+  {
+   "name": "ab2_app_serve_chat",
+   "note": "A/B round 2, variant app_serve",
+   "requests": 1026,
+   "duration_seconds": 30.0,
+   "rps": 34.2,
+   "success_rps": 34.2,
+   "ok": 1026,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 1026
+   },
+   "latency_ms": {
+    "min": 347.7,
+    "p50": 459.53,
+    "p95": 565.44,
+    "p99": 732.44,
+    "max": 862.2,
+    "mean": 467.46
+   },
+   "ok_latency_ms": {
+    "p50": 459.53,
+    "p95": 565.44,
+    "p99": 732.44
+   },
+   "scenario": "chat",
+   "concurrency": 16,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 164,
+     "success_rate": 1.0,
+     "p95_ms": 722.6
+    },
+    {
+     "t": 5.0,
+     "requests": 177,
+     "success_rate": 1.0,
+     "p95_ms": 525.4
+    },
+    {
+     "t": 10.0,
+     "requests": 168,
+     "success_rate": 1.0,
+     "p95_ms": 609.9
+    },
+    {
+     "t": 15.0,
+     "requests": 173,
+     "success_rate": 1.0,
+     "p95_ms": 574.7
+    },
+    {
+     "t": 20.0,
+     "requests": 172,
+     "success_rate": 1.0,
+     "p95_ms": 538.4
+    },
+    {
+     "t": 25.0,
+     "requests": 172,
+     "success_rate": 1.0,
+     "p95_ms": 558.1
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 3.0,
+     "cpu_percent_max": 5.2,
+     "mem_mb_max": 51.7,
+     "samples": 9
+    },
+    "api": {
+     "cpu_percent_avg": 80.8,
+     "cpu_percent_max": 111.7,
+     "mem_mb_max": 347.2,
+     "samples": 9
+    },
+    "db": {
+     "cpu_percent_avg": 13.7,
+     "cpu_percent_max": 24.3,
+     "mem_mb_max": 50.4,
+     "samples": 9
+    },
+    "qdrant": {
+     "cpu_percent_avg": 5.5,
+     "cpu_percent_max": 12.0,
+     "mem_mb_max": 59.5,
+     "samples": 9
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 9.1,
+     "cpu_percent_max": 11.6,
+     "mem_mb_max": 34.8,
+     "samples": 9
+    }
+   }
+  },
+  {
+   "name": "ab2_app_serve_mixed",
+   "note": "A/B round 2, variant app_serve",
+   "requests": 1458,
+   "duration_seconds": 30.0,
+   "rps": 48.6,
+   "success_rps": 48.6,
+   "ok": 1458,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 1458
+   },
+   "latency_ms": {
+    "min": 2.11,
+    "p50": 286.77,
+    "p95": 1366.4,
+    "p99": 2020.91,
+    "max": 3040.36,
+    "mean": 483.15
+   },
+   "ok_latency_ms": {
+    "p50": 286.77,
+    "p95": 1366.4,
+    "p99": 2020.91
+   },
+   "scenario": "mixed",
+   "concurrency": 24,
+   "users": 8,
+   "warmup_seconds": 10,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 227,
+     "success_rate": 1.0,
+     "p95_ms": 1309.4
+    },
+    {
+     "t": 5.0,
+     "requests": 286,
+     "success_rate": 1.0,
+     "p95_ms": 1081.5
+    },
+    {
+     "t": 10.0,
+     "requests": 270,
+     "success_rate": 1.0,
+     "p95_ms": 1413.3
+    },
+    {
+     "t": 15.0,
+     "requests": 242,
+     "success_rate": 1.0,
+     "p95_ms": 1318.3
+    },
+    {
+     "t": 20.0,
+     "requests": 215,
+     "success_rate": 1.0,
+     "p95_ms": 1437.1
+    },
+    {
+     "t": 25.0,
+     "requests": 218,
+     "success_rate": 1.0,
+     "p95_ms": 1516.2
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 6.5,
+     "cpu_percent_max": 12.5,
+     "mem_mb_max": 59.2,
+     "samples": 9
+    },
+    "api": {
+     "cpu_percent_avg": 184.0,
+     "cpu_percent_max": 209.9,
+     "mem_mb_max": 384.9,
+     "samples": 9
+    },
+    "db": {
+     "cpu_percent_avg": 21.1,
+     "cpu_percent_max": 42.4,
+     "mem_mb_max": 64.1,
+     "samples": 9
+    },
+    "qdrant": {
+     "cpu_percent_avg": 6.8,
+     "cpu_percent_max": 16.0,
+     "mem_mb_max": 56.4,
+     "samples": 9
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 11.4,
+     "cpu_percent_max": 15.3,
+     "mem_mb_max": 35.5,
+     "samples": 9
+    }
+   }
+  },
+  {
+   "name": "sustained_steady_before",
+   "note": "recovery: latency/error rate after the spike should return to the 'before' level",
+   "requests": 3722,
+   "duration_seconds": 60.0,
+   "rps": 62.03,
+   "success_rps": 62.03,
+   "ok": 3722,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 3722
+   },
+   "latency_ms": {
+    "min": 1.91,
+    "p50": 207.12,
+    "p95": 1175.71,
+    "p99": 1485.77,
+    "max": 2188.18,
+    "mean": 388.79
+   },
+   "ok_latency_ms": {
+    "p50": 207.12,
+    "p95": 1175.71,
+    "p99": 1485.77
+   },
+   "scenario": "mixed",
+   "concurrency": 24,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 354,
+     "success_rate": 1.0,
+     "p95_ms": 989.8
+    },
+    {
+     "t": 5.0,
+     "requests": 362,
+     "success_rate": 1.0,
+     "p95_ms": 1130.5
+    },
+    {
+     "t": 10.0,
+     "requests": 329,
+     "success_rate": 1.0,
+     "p95_ms": 1112.4
+    },
+    {
+     "t": 15.0,
+     "requests": 340,
+     "success_rate": 1.0,
+     "p95_ms": 1119.5
+    },
+    {
+     "t": 20.0,
+     "requests": 302,
+     "success_rate": 1.0,
+     "p95_ms": 1142.2
+    },
+    {
+     "t": 25.0,
+     "requests": 281,
+     "success_rate": 1.0,
+     "p95_ms": 1513.0
+    },
+    {
+     "t": 30.0,
+     "requests": 285,
+     "success_rate": 1.0,
+     "p95_ms": 1206.9
+    },
+    {
+     "t": 35.0,
+     "requests": 334,
+     "success_rate": 1.0,
+     "p95_ms": 1071.2
+    },
+    {
+     "t": 40.0,
+     "requests": 333,
+     "success_rate": 1.0,
+     "p95_ms": 1082.8
+    },
+    {
+     "t": 45.0,
+     "requests": 295,
+     "success_rate": 1.0,
+     "p95_ms": 1255.8
+    },
+    {
+     "t": 50.0,
+     "requests": 251,
+     "success_rate": 1.0,
+     "p95_ms": 1254.6
+    },
+    {
+     "t": 55.0,
+     "requests": 256,
+     "success_rate": 1.0,
+     "p95_ms": 1316.9
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 6.6,
+     "cpu_percent_max": 11.0,
+     "mem_mb_max": 44.5,
+     "samples": 12
+    },
+    "api": {
+     "cpu_percent_avg": 198.9,
+     "cpu_percent_max": 213.3,
+     "mem_mb_max": 377.1,
+     "samples": 12
+    },
+    "db": {
+     "cpu_percent_avg": 22.4,
+     "cpu_percent_max": 29.4,
+     "mem_mb_max": 50.0,
+     "samples": 12
+    },
+    "qdrant": {
+     "cpu_percent_avg": 8.3,
+     "cpu_percent_max": 10.6,
+     "mem_mb_max": 80.3,
+     "samples": 12
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 14.9,
+     "cpu_percent_max": 20.7,
+     "mem_mb_max": 38.5,
+     "samples": 12
+    }
+   },
+   "postgres": {
+    "commits": 17185,
+    "rollbacks": 5720,
+    "tuples_returned": 420767,
+    "tuples_fetched": 314839,
+    "tuples_inserted": 3453,
+    "tuples_updated": 475,
+    "blocks_hit": 485969,
+    "blocks_read": 0,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 9
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 3732,
+     "mean_ms": 375.4,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "llm_duration_ms": {
+     "count": 2994,
+     "mean_ms": 255.1,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "rag_duration_ms": {
+     "count": 2929,
+     "mean_ms": 96.7,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "rag_duration_ms:extract": {
+     "count": 354,
+     "mean_ms": 259.0,
+     "p95_ms_bucket_upper_bound": 1000.0
+    },
+    "rag_duration_ms:ingest": {
+     "count": 354,
+     "mean_ms": 104.1,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "rag_duration_ms:search": {
+     "count": 2221,
+     "mean_ms": 69.7,
+     "p95_ms_bucket_upper_bound": 250.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "sustained_spike",
+   "note": "recovery: latency/error rate after the spike should return to the 'before' level",
+   "requests": 900,
+   "duration_seconds": 20.0,
+   "rps": 45.0,
+   "success_rps": 45.0,
+   "ok": 900,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 900
+   },
+   "latency_ms": {
+    "min": 6.19,
+    "p50": 1607.23,
+    "p95": 6000.64,
+    "p99": 7019.1,
+    "max": 7944.72,
+    "mean": 2221.48
+   },
+   "ok_latency_ms": {
+    "p50": 1607.23,
+    "p95": 6000.64,
+    "p99": 7019.1
+   },
+   "scenario": "mixed",
+   "concurrency": 96,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 305,
+     "success_rate": 1.0,
+     "p95_ms": 6760.9
+    },
+    {
+     "t": 5.0,
+     "requests": 160,
+     "success_rate": 1.0,
+     "p95_ms": 5501.2
+    },
+    {
+     "t": 10.0,
+     "requests": 189,
+     "success_rate": 1.0,
+     "p95_ms": 4695.2
+    },
+    {
+     "t": 15.0,
+     "requests": 246,
+     "success_rate": 1.0,
+     "p95_ms": 4513.6
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 8.9,
+     "cpu_percent_max": 20.7,
+     "mem_mb_max": 56.6,
+     "samples": 5
+    },
+    "api": {
+     "cpu_percent_avg": 171.2,
+     "cpu_percent_max": 207.4,
+     "mem_mb_max": 421.2,
+     "samples": 5
+    },
+    "db": {
+     "cpu_percent_avg": 23.6,
+     "cpu_percent_max": 30.1,
+     "mem_mb_max": 74.8,
+     "samples": 5
+    },
+    "qdrant": {
+     "cpu_percent_avg": 7.5,
+     "cpu_percent_max": 13.4,
+     "mem_mb_max": 81.9,
+     "samples": 5
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 13.3,
+     "cpu_percent_max": 20.8,
+     "mem_mb_max": 35.4,
+     "samples": 5
+    }
+   },
+   "postgres": {
+    "commits": 3478,
+    "rollbacks": 1428,
+    "tuples_returned": 50005,
+    "tuples_fetched": 41108,
+    "tuples_inserted": 886,
+    "tuples_updated": 138,
+    "blocks_hit": 75164,
+    "blocks_read": 0,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 11
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 906,
+     "mean_ms": 2038.2,
+     "p95_ms_bucket_upper_bound": 10000.0
+    },
+    "llm_duration_ms": {
+     "count": 744,
+     "mean_ms": 915.6,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "rag_duration_ms": {
+     "count": 689,
+     "mean_ms": 408.7,
+     "p95_ms_bucket_upper_bound": 1000.0
+    },
+    "rag_duration_ms:extract": {
+     "count": 75,
+     "mean_ms": 758.0,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "rag_duration_ms:ingest": {
+     "count": 75,
+     "mean_ms": 479.2,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "rag_duration_ms:search": {
+     "count": 539,
+     "mean_ms": 350.3,
+     "p95_ms_bucket_upper_bound": 1000.0
+    },
+    "counters": {}
+   }
+  },
+  {
+   "name": "sustained_steady_after",
+   "note": "recovery: latency/error rate after the spike should return to the 'before' level",
+   "requests": 3057,
+   "duration_seconds": 60.0,
+   "rps": 50.95,
+   "success_rps": 50.95,
+   "ok": 3057,
+   "success_rate": 1.0,
+   "error_rate": 0.0,
+   "http_429": 0,
+   "http_503": 0,
+   "http_5xx_other": 0,
+   "transport_errors": 0,
+   "status_counts": {
+    "200": 3057
+   },
+   "latency_ms": {
+    "min": 1.84,
+    "p50": 293.86,
+    "p95": 1366.86,
+    "p99": 1810.88,
+    "max": 2893.93,
+    "mean": 472.85
+   },
+   "ok_latency_ms": {
+    "p50": 293.86,
+    "p95": 1366.86,
+    "p99": 1810.88
+   },
+   "scenario": "mixed",
+   "concurrency": 24,
+   "users": 8,
+   "warmup_seconds": 0.0,
+   "seed": 1,
+   "timeline": [
+    {
+     "t": 0.0,
+     "requests": 278,
+     "success_rate": 1.0,
+     "p95_ms": 1485.7
+    },
+    {
+     "t": 5.0,
+     "requests": 293,
+     "success_rate": 1.0,
+     "p95_ms": 1208.5
+    },
+    {
+     "t": 10.0,
+     "requests": 256,
+     "success_rate": 1.0,
+     "p95_ms": 1287.2
+    },
+    {
+     "t": 15.0,
+     "requests": 195,
+     "success_rate": 1.0,
+     "p95_ms": 2404.8
+    },
+    {
+     "t": 20.0,
+     "requests": 240,
+     "success_rate": 1.0,
+     "p95_ms": 1390.3
+    },
+    {
+     "t": 25.0,
+     "requests": 229,
+     "success_rate": 1.0,
+     "p95_ms": 1462.3
+    },
+    {
+     "t": 30.0,
+     "requests": 239,
+     "success_rate": 1.0,
+     "p95_ms": 1289.0
+    },
+    {
+     "t": 35.0,
+     "requests": 218,
+     "success_rate": 1.0,
+     "p95_ms": 1687.5
+    },
+    {
+     "t": 40.0,
+     "requests": 240,
+     "success_rate": 1.0,
+     "p95_ms": 1176.5
+    },
+    {
+     "t": 45.0,
+     "requests": 262,
+     "success_rate": 1.0,
+     "p95_ms": 1264.3
+    },
+    {
+     "t": 50.0,
+     "requests": 316,
+     "success_rate": 1.0,
+     "p95_ms": 1125.0
+    },
+    {
+     "t": 55.0,
+     "requests": 291,
+     "success_rate": 1.0,
+     "p95_ms": 1097.3
+    }
+   ],
+   "resources": {
+    "caddy": {
+     "cpu_percent_avg": 6.7,
+     "cpu_percent_max": 8.4,
+     "mem_mb_max": 45.2,
+     "samples": 12
+    },
+    "api": {
+     "cpu_percent_avg": 197.8,
+     "cpu_percent_max": 206.1,
+     "mem_mb_max": 443.2,
+     "samples": 12
+    },
+    "db": {
+     "cpu_percent_avg": 23.4,
+     "cpu_percent_max": 32.8,
+     "mem_mb_max": 61.8,
+     "samples": 12
+    },
+    "qdrant": {
+     "cpu_percent_avg": 12.8,
+     "cpu_percent_max": 15.4,
+     "mem_mb_max": 68.2,
+     "samples": 12
+    },
+    "fake-llm": {
+     "cpu_percent_avg": 13.9,
+     "cpu_percent_max": 16.9,
+     "mem_mb_max": 45.8,
+     "samples": 12
+    }
+   },
+   "postgres": {
+    "commits": 13964,
+    "rollbacks": 4646,
+    "tuples_returned": 292741,
+    "tuples_fetched": 219824,
+    "tuples_inserted": 2850,
+    "tuples_updated": 445,
+    "blocks_hit": 325011,
+    "blocks_read": 0,
+    "cache_hit_ratio": 1.0,
+    "connections_at_end": 11
+   },
+   "server_side": {
+    "http_request_duration_ms": {
+     "count": 3068,
+     "mean_ms": 448.5,
+     "p95_ms_bucket_upper_bound": 2500.0
+    },
+    "llm_duration_ms": {
+     "count": 2434,
+     "mean_ms": 250.8,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "rag_duration_ms": {
+     "count": 2376,
+     "mean_ms": 150.2,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "rag_duration_ms:extract": {
+     "count": 286,
+     "mean_ms": 422.5,
+     "p95_ms_bucket_upper_bound": 1000.0
+    },
+    "rag_duration_ms:ingest": {
+     "count": 286,
+     "mean_ms": 145.9,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "rag_duration_ms:search": {
+     "count": 1804,
+     "mean_ms": 107.7,
+     "p95_ms_bucket_upper_bound": 500.0
+    },
+    "counters": {}
+   }
+  }
+ ],
+ "environment": {
+  "started": "2026-11-27T08:56:37+00:00",
+  "docker": "8 CPUs, 4106539008 bytes, Docker Desktop, aarch64",
+  "host": "Darwin arm64",
+  "duration_per_step": 30.0,
+  "seed": 1,
+  "profile_note": "capacity profile raises rate limits on the test stack only"
+ },
+ "qdrant_direct": {
+  "collection": "nexus_knowledge",
+  "points": 73,
+  "get_collection": {
+   "p50_ms": 0.91,
+   "p95_ms": 1.99
+  },
+  "scroll_5": {
+   "p50_ms": 1.33,
+   "p95_ms": 5.21
+  },
+  "query_vector": {
+   "p50_ms": 2.02,
+   "p95_ms": 8.83
+  }
+ },
+ "keepalive_ab": [
+  {
+   "round": 1,
+   "variant": "legacy_uvicorn_cli",
+   "loopback_keepalive": {
+    "requests": 120,
+    "p50_ms": 42.91,
+    "p95_ms": 46.85
+   },
+   "scenarios": {
+    "health": {
+     "rps": 36.17,
+     "p50": 538.59,
+     "p95": 9388.73,
+     "p99": 15058.21,
+     "error_rate": 0.0184
+    },
+    "search": {
+     "rps": 161.9,
+     "p50": 82.56,
+     "p95": 170.8,
+     "p99": 490.14,
+     "error_rate": 0.0
+    },
+    "chat": {
+     "rps": 31.67,
+     "p50": 491.75,
+     "p95": 627.08,
+     "p99": 939.79,
+     "error_rate": 0.0
+    },
+    "mixed": {
+     "rps": 45.73,
+     "p50": 347.01,
+     "p95": 1434.18,
+     "p99": 1839.69,
+     "error_rate": 0.0
+    }
+   }
+  },
+  {
+   "round": 1,
+   "variant": "app_serve",
+   "loopback_keepalive": {
+    "requests": 120,
+    "p50_ms": 0.53,
+    "p95_ms": 1.34
+   },
+   "scenarios": {
+    "health": {
+     "rps": 408.4,
+     "p50": 87.58,
+     "p95": 504.55,
+     "p99": 1161.78,
+     "error_rate": 0.0
+    },
+    "search": {
+     "rps": 167.97,
+     "p50": 85.49,
+     "p95": 176.71,
+     "p99": 498.82,
+     "error_rate": 0.0
+    },
+    "chat": {
+     "rps": 32.47,
+     "p50": 474.18,
+     "p95": 670.87,
+     "p99": 830.92,
+     "error_rate": 0.0
+    },
+    "mixed": {
+     "rps": 28.67,
+     "p50": 295.78,
+     "p95": 1915.71,
+     "p99": 14025.76,
+     "error_rate": 0.0035
+    }
+   }
+  },
+  {
+   "round": 2,
+   "variant": "legacy_uvicorn_cli",
+   "loopback_keepalive": {
+    "requests": 120,
+    "p50_ms": 42.17,
+    "p95_ms": 44.41
+   },
+   "scenarios": {
+    "health": {
+     "rps": 129.0,
+     "p50": 317.67,
+     "p95": 1529.94,
+     "p99": 2499.54,
+     "error_rate": 0.0
+    },
+    "search": {
+     "rps": 166.57,
+     "p50": 81.99,
+     "p95": 169.37,
+     "p99": 348.87,
+     "error_rate": 0.0
+    },
+    "chat": {
+     "rps": 29.93,
+     "p50": 508.46,
+     "p95": 709.22,
+     "p99": 1533.47,
+     "error_rate": 0.0
+    },
+    "mixed": {
+     "rps": 41.67,
+     "p50": 336.05,
+     "p95": 1573.61,
+     "p99": 2465.83,
+     "error_rate": 0.0
+    }
+   }
+  },
+  {
+   "round": 2,
+   "variant": "app_serve",
+   "loopback_keepalive": {
+    "requests": 120,
+    "p50_ms": 0.52,
+    "p95_ms": 1.17
+   },
+   "scenarios": {
+    "health": {
+     "rps": 380.77,
+     "p50": 92.38,
+     "p95": 579.12,
+     "p99": 1188.21,
+     "error_rate": 0.0
+    },
+    "search": {
+     "rps": 166.93,
+     "p50": 86.94,
+     "p95": 182.34,
+     "p99": 401.64,
+     "error_rate": 0.0
+    },
+    "chat": {
+     "rps": 34.2,
+     "p50": 459.53,
+     "p95": 565.44,
+     "p99": 732.44,
+     "error_rate": 0.0
+    },
+    "mixed": {
+     "rps": 48.6,
+     "p50": 286.77,
+     "p95": 1366.4,
+     "p99": 2020.91,
+     "error_rate": 0.0
+    }
+   }
+  }
+ ],
+ "recovery": {
+  "p95_before_ms": 1175.71,
+  "p95_after_ms": 1366.86,
+  "success_before": 1.0,
+  "success_after": 1.0
+ },
+ "fake_llm_stats": {
+  "chat": 23685,
+  "embed": 41980,
+  "failed": 0,
+  "hung": 0,
+  "in_flight": 0,
+  "max_in_flight": 80,
+  "started": 1795769841.4693377,
+  "state": {
+   "latency_ms": 200.0,
+   "jitter_ms": 50.0,
+   "failure_rate": 0.0,
+   "failure_status": 500,
+   "hang_rate": 0.0,
+   "hang_seconds": 0.0,
+   "embed_latency_ms": 10.0
+  },
+  "uptime_seconds": 1795.0
+ }
+}
