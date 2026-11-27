@@ -1,11 +1,14 @@
 import os
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.security.identity import SYSTEM_USER, Principal, get_principal, resolve_user_id
+from app.services.document_extraction import ExtractionLimits, extract_document_text
 from app.services.rag import rag
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
@@ -18,6 +21,12 @@ class KnowledgeSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=5000)
     user_id: str | None = Field(default=None, min_length=1, max_length=128)
     limit: int = Field(default=5, ge=1, le=50)
+
+
+def _extract_and_ingest(temp_path: str, user_id: str, metadata: dict):
+    limits = replace(ExtractionLimits.from_env(), max_chars=rag.max_document_chars)
+    text = extract_document_text(temp_path, limits)
+    return rag.ingest_text(text=text, source=Path(temp_path).name, user_id=user_id, metadata=metadata)
 
 
 @router.post("/ingest")
@@ -57,10 +66,12 @@ async def ingest_document(
             temp.write(content)
             temp_path = temp.name
 
-        return rag.ingest_file(
+        # Extraction and embedding block; keep them off the event loop. Parsing runs in an isolated child process.
+        return await run_in_threadpool(
+            _extract_and_ingest,
             temp_path,
-            user_id=user_id,
-            metadata={"filename": filename}
+            user_id,
+            {"filename": filename},
         )
 
     except ValueError as exc:
