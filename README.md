@@ -237,6 +237,7 @@ Configure `NEXUS_RATE_LIMIT_PER_MINUTE`, `NEXUS_MAX_REQUEST_BYTES` (for requests
 - `GET /health/live` reports process liveness.
 - `GET /health/ready` checks Ollama chat/embedding models, Qdrant and SQL memory in non-demo mode; it returns HTTP 503 when a required dependency is unavailable.
 - The Docker image runs as an unprivileged `nexus` user and includes a liveness health check.
+- A production-like local stack (Caddy TLS, PostgreSQL, Qdrant, migrations, secrets as files) is in `deploy/`; see `docs/deployment-local.md`.
 - Render is configured to use `/health/live`. For a real production deployment, use managed persistent SQL storage and configure reachable Ollama/Qdrant services; the public Render demo remains deterministic and stateless.
 
 ## Coordinated 8-area engineering upgrade

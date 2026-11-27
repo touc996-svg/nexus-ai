@@ -1,0 +1,153 @@
+# Production-like local stack: Caddy (TLS) -> NEXUS API -> PostgreSQL + Qdrant. For rehearsal on one machine; it is not a
+# deployment. Secrets are mounted files in deploy/secrets/ (created by scripts/deploy_local_secrets.sh, git-ignored).
+# Start: see docs/deployment-local.md.
+name: nexus-local
+
+x-image: &nexus-build
+  context: ..
+  dockerfile: Dockerfile
+
+x-hardening: &hardening
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:16.16-alpine
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_DB: nexus
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]  # the image entrypoint prepares the data directory, then drops to postgres
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 512M}
+
+  qdrant:
+    <<: *hardening
+    image: qdrant/qdrant:v1.20.0
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"  # no usage reports to the vendor
+    secrets:
+      - source: qdrant_config
+        target: /qdrant/config/local.yaml
+    volumes: [qdrant_storage:/qdrant/storage]
+    networks: [backend]
+    healthcheck:
+      # The image has bash but no curl or wget.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6333 && printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q 200"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 1G}
+
+  migrate:
+    image: nexus-ai:prod-local
+    build: *nexus-build
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      NEXUS_PRIVATE_NETWORK_HOSTS: db,qdrant
+      APP_ENV: production
+    secrets: [database_url]
+    networks: [backend]
+    depends_on:
+      db: {condition: service_healthy}
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+
+  api:
+    <<: *hardening
+    image: nexus-ai:prod-local
+    build: *nexus-build
+    environment:
+      APP_ENV: production
+      NEXUS_DEMO_MODE: "false"
+      DATABASE_URL_FILE: /run/secrets/database_url
+      NEXUS_API_KEY_FILE: /run/secrets/nexus_api_key
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY_FILE: /run/secrets/qdrant_api_key
+      # db and qdrant are services on the internal-only `backend` network, so plain connections to them are acceptable.
+      # Public or managed hosts (Neon, Qdrant Cloud) must NOT be listed: they keep their mandatory TLS rules.
+      NEXUS_PRIVATE_NETWORK_HOSTS: db,qdrant
+      NEXUS_ALLOWED_HOSTS: ${NEXUS_ALLOWED_HOSTS:-localhost,127.0.0.1}  # 127.0.0.1 is used by the container health check
+      NEXUS_TRUSTED_PROXY_HOPS: "1"  # exactly one proxy (Caddy) in front; measured in docs/deployment-local.md
+      NEXUS_CORS_ORIGINS: ${NEXUS_CORS_ORIGINS:-}
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      NEXUS_RATE_LIMIT_PER_MINUTE: ${NEXUS_RATE_LIMIT_PER_MINUTE:-120}
+      NEXUS_READINESS_REQUIRE_LLM: ${NEXUS_READINESS_REQUIRE_LLM:-true}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      NEXUS_MODEL: ${NEXUS_MODEL:-qwen3:1.7b}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      NEXUS_LOG_FORMAT: json
+    extra_hosts: ["host.docker.internal:host-gateway"]  # model server on the host; Docker Desktop adds this name itself
+    secrets: [database_url, nexus_api_key, qdrant_api_key]
+    networks: [backend, edge]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      qdrant: {condition: service_healthy}
+    stop_grace_period: 35s  # > uvicorn's 25 s drain, so shutdown flushes metrics before SIGKILL
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits: {cpus: "2.0", memory: 1G}
+
+  caddy:
+    <<: *hardening
+    image: caddy:2.10.2-alpine
+    ports:
+      - "127.0.0.1:${NEXUS_HTTPS_PORT:-8443}:443"  # the only published port, bound to loopback
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      api: {condition: service_healthy}
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    read_only: true
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256M}
+
+networks:
+  backend:
+    internal: true  # no route to or from the outside: only db, qdrant, migrate and api are on it
+  edge: {}
+
+volumes:
+  pgdata:
+  qdrant_storage:
+  caddy_data:
+  caddy_config:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  database_url:
+    file: ./secrets/database_url
+  nexus_api_key:
+    file: ./secrets/nexus_api_key
+  qdrant_api_key:
+    file: ./secrets/qdrant_api_key
+  qdrant_config:
+    file: ./secrets/qdrant_config.yaml

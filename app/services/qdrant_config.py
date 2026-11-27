@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
+from app.core.database import private_network_hosts
 from app.core.metrics import metrics
 
 logger = logging.getLogger("nexus.qdrant")
@@ -44,7 +45,7 @@ class QdrantSettings:
 
     @property
     def is_local(self) -> bool:
-        return self.host in LOCAL_HOSTS
+        return self.host in LOCAL_HOSTS or self.host.lower() in private_network_hosts()
 
     def describe(self) -> str:
         """Safe to log: scheme and host only, never the key or the path."""

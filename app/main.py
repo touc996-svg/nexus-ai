@@ -14,6 +14,7 @@ from app.core.database import engine, is_sqlite
 from app.core.logging_config import configure_logging
 from app.core.metrics import metrics
 from app.core.monitoring import monitoring
+from app.core.production_check import validate_production_settings
 from app.core.request_observability import install_observability
 from app.core.decision_engine import decision_engine
 from app.core.memory import memory
@@ -76,6 +77,7 @@ def format_knowledge_context(items, max_chars=MAX_KNOWLEDGE_CONTEXT_CHARS):
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    validate_production_settings()  # refuses to start on an unsafe production configuration (names variables only)
     monitoring.start()  # per-worker metrics flusher and alert evaluator; a no-op when NEXUS_METRICS_PERSISTENCE=false
     try:
         yield

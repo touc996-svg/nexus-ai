@@ -150,3 +150,13 @@ jobs:
         run: python -m pip install --require-hashes -r requirements.txt
       - name: Run HTTP-level security tests (skipped cases are NOT VERIFIED items; see docs/SECURITY_TEST_REPORT.md)
         run: python -m pytest tests/security -q -rs
+
+  compose-smoke:
+    name: Production-like Compose stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Rehearse the local production-like stack (build, migrate, TLS, health, auth, failure and restart checks)
+        run: ./scripts/compose_smoke.sh
