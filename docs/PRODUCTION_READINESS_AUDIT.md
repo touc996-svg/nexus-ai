@@ -15,12 +15,13 @@ Statuses: VERIFIED, MISSING, NEEDS FIX, BLOCKED, NOT APPLICABLE.
 | M4 tracked `.bak` files | #24 (f694cc0) | FIXED | 25 files removed, `*.bak*` ignored | untracked local backups left in place |
 | CI scanning | #25 (1ca79db) | DONE | gitleaks (full history) and Trivy (fs + image, HIGH/CRITICAL fixable) run on main; 3 image CVEs patched in the Dockerfile | base image not pinned by digest; scanners find only known CVEs and configured secret patterns; gitleaks allowlist covers `tests/` and `evals/cache|recovery/` |
 | M6 document parsing | #26 (96e0c52) | FIXED (hardened, not sandboxed) | signature checks, DOCX zip-bomb limits, PDF page and incremental char limits, child process with timeout/CPU/memory limits and scrubbed env, off the event loop; 24 extraction tests green on Linux CI and in Linux Docker, incl. memory-limit test | see below |
+| Extraction concurrency | #28 | DONE (per process) | `BoundedSemaphore` (default 2, range 1-16), 5 s queue timeout, HTTP 503 + `Retry-After`, released in `finally`; release verified after normal, rejected, timeout and SIGKILL on Linux CI | total = workers x N and not shared across instances; needs shared limiting (M1) for multi-instance |
 
 ## Remaining production blockers (untrusted multi-user)
 1. Real Neon verification (TLS, pooler, cold starts) and a migration step in the deploy flow.
 2. H1 hardening: adversarial test corpus, live-model evaluation, ingest-time checks.
 3. Qdrant server path never run in CI (M-level RAG items: hybrid/rerank/citations/abstention still absent in production code).
-4. Shared rate limiting / proxy handling (M1), secret management (M2), extraction concurrency limit (each upload spawns a child; no cap).
+4. Shared rate limiting / proxy handling (M1), secret management (M2). Extraction concurrency is capped per process only (see M6 row): not shared across instances.
 5. No observability (errors, latency, tokens) and no deploy gate (Render auto-deploys `main` on commit).
 6. Ruff 98 / mypy 13 findings untriaged.
 7. Docker image: built and health-checked locally once (non-root, healthy), CI builds it; not run under production settings.
