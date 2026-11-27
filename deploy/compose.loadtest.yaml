@@ -1,0 +1,30 @@
+# Load-test overlay: swaps the real model server for loadtest/fake_llm.py (canned replies with controllable latency and
+# failures) on the production-like stack. Use together with deploy/compose.yaml; see docs/LOAD_TESTING.md. Nothing here is for
+# production: the fake server's control port is published on loopback only.
+services:
+  fake-llm:
+    image: nexus-ai:prod-local
+    restart: unless-stopped
+    command: ["uvicorn", "loadtest.fake_llm:app", "--host", "0.0.0.0", "--port", "11434", "--app-dir", "/srv", "--log-level", "warning"]
+    volumes: ["../loadtest:/srv/loadtest:ro"]
+    environment:
+      NEXUS_DEMO_MODE: "true"  # the image's production validation does not apply to this helper process
+    ports: ["127.0.0.1:${FAKE_LLM_PORT:-18434}:11434"]
+    networks: [backend, edge]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:11434/api/tags', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+  api:
+    environment:
+      OLLAMA_BASE_URL: http://fake-llm:11434/v1
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-10}
+      NEXUS_RATE_LIMIT_PER_MINUTE: ${NEXUS_RATE_LIMIT_PER_MINUTE:-120}
+      NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE: ${NEXUS_RATE_LIMIT_PER_IDENTITY_PER_MINUTE:-120}
+    depends_on:
+      fake-llm: {condition: service_healthy}

@@ -4,7 +4,7 @@ A rehearsal of the production shape, **not a deployment**: no cloud, no real dom
 your machine; only Caddy listens, on `127.0.0.1:8443`.
 
 ```
-browser/curl --HTTPS (Caddy local CA)--> caddy --edge net--> api (uvicorn, 2 workers, non-root, read-only fs)
+browser/curl --HTTPS (Caddy local CA)--> caddy --edge net--> api (python -m app.serve: uvicorn, 2 workers, non-root, read-only fs)
                                                               |  backend net (internal: no outside route)
                                                               +--> db      PostgreSQL 16 (volume pgdata)
                                                               +--> qdrant  Qdrant v1.20.0 (volume qdrant_storage, API key)
@@ -75,7 +75,7 @@ Caddy sets `X-Forwarded-For` for each request and, with no trusted proxies confi
 API sees exactly one hop: `NEXUS_TRUSTED_PROXY_HOPS=1` (see `docs/trusted-proxy.md`). **Measured on this stack:** 12 requests
 with a different forged `X-Forwarded-For` each were limited after the 6th (limit set to 6/minute): spoofing does not create new
 rate-limit buckets. This measures *this* Caddy topology only; **it says nothing about Render or any other platform**, whose hop
-count must still be measured with the procedure in `docs/trusted-proxy.md`. The uvicorn setting `--no-proxy-headers` is deliberate:
+count must still be measured with the procedure in `docs/trusted-proxy.md`. The launcher `app/serve.py` runs uvicorn with proxy-header rewriting off (`proxy_headers=False`) deliberately, and sets `TCP_NODELAY` on the shared listening socket (without it, multi-worker uvicorn adds ~42 ms to every keep-alive request; see `docs/LOAD_TEST_REPORT.md`):
 only the application interprets the header.
 
 ## Security properties (verified by `scripts/compose_smoke.sh` and `tests/test_deployment_readiness.py`)

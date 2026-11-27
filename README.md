@@ -493,3 +493,5 @@ Qdrant client calls) in an isolated collection, with the embedding response repl
 in-process local mode; **a Qdrant server was not tested**. Hybrid and reranking rows are harness experiments, not production features. Results,
 the frozen configuration, the cache incident and its verified recovery (44 of 44 rebuilt entries matched; 12 of 12 reports replay exactly), and known
 limitations, including a cleanup-tool limitation, are in [docs/RAG_ADAPTER_EVALUATION.md](docs/RAG_ADAPTER_EVALUATION.md).
+
+- Load and performance testing: `docs/LOAD_TESTING.md` (how to run) and `docs/LOAD_TEST_REPORT.md` (results and capacity guidance).
