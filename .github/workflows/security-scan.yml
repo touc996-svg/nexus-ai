@@ -1,0 +1,60 @@
+name: Security scan
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    - cron: "17 5 * * 1"   # weekly: new CVEs appear without code changes
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks, full history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # scan every commit, not just the tip
+          persist-credentials: false
+      # gitleaks/gitleaks-action v3.0.0. Personal accounts need no licence; an organisation must add GITLEAKS_LICENSE.
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"   # the report would contain matched text
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
+  trivy:
+    name: Vulnerability scan (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # aquasecurity/trivy-action v0.36.0. Fails on HIGH or CRITICAL findings that have a fix available;
+      # unfixed ones are not shown so the gate stays actionable.
+      - name: Scan dependencies and configuration (filesystem)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Build image
+        run: docker build --tag nexus-ai:scan .
+      - name: Scan container image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: nexus-ai:scan
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

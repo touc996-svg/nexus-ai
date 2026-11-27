@@ -6,8 +6,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production
 
+# Pick up Debian security fixes published after the base image was built (e.g. libzstd1 CVE-2026-124851).
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
+# setuptools and wheel are build tools the running app does not use; their vendored copies carried HIGH CVEs
+# (jaraco.context, wheel) in the Trivy scan, so they are removed from the runtime image.
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
+    && pip uninstall -y setuptools wheel \
     && groupadd --system nexus \
     && useradd --system --gid nexus --home-dir /app nexus
 
