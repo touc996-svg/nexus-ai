@@ -6,6 +6,7 @@ import socket
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
@@ -44,10 +45,12 @@ def test_two_workers_aggregate_and_a_graceful_shutdown_flushes(tmp_path):
                              "--workers", "2", "--log-level", "error"], env=env, cwd=".")
     try:
         _wait_ready(port)
-        # Requests are spread over both workers (separate connections); every request is /system/alerts so it is counted.
-        for _ in range(40):
-            response = httpx.get(f"http://127.0.0.1:{port}/system/alerts", headers={"X-API-Key": OPERATOR}, timeout=5)
-            assert response.status_code == 200
+        # Concurrent connections give both workers a chance to serve; every request is /system/alerts so it is counted.
+        def hit(_):
+            return httpx.get(f"http://127.0.0.1:{port}/system/alerts", headers={"X-API-Key": OPERATOR}, timeout=5).status_code
+
+        with ThreadPoolExecutor(8) as pool:
+            assert set(pool.map(hit, range(40))) == {200}
     finally:
         proc.send_signal(signal.SIGTERM)  # graceful: each worker's lifespan shutdown makes the final flush
         proc.wait(timeout=30)
@@ -57,7 +60,10 @@ def test_two_workers_aggregate_and_a_graceful_shutdown_flushes(tmp_path):
                 if c["name"] == "http_requests_total" and c["labels"].get("route") == "/system/alerts")
     with engine.connect() as connection:
         flushes = connection.exec_driver_sql("SELECT count(*) FROM metric_flushes").scalar()
-    assert flushes >= 2  # with a 300 s interval only the shutdown flush ran: one per worker that served traffic
+    # With a 300 s interval only shutdown flushes ran: one per worker that served traffic. How connections are spread over
+    # uvicorn's workers is up to the kernel (CI run #91 saw one worker take everything), so only "at least one" is asserted;
+    # multi-worker aggregation itself is asserted exactly by the multi-process and PostgreSQL tests.
+    assert flushes >= 1
     assert total == 40  # nothing lost at shutdown, nothing counted twice, across both workers
     # "restart": a brand new process reads the same totals back through the real endpoint
     port = _free_port()
