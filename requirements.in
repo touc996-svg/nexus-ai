@@ -1,0 +1,14 @@
+# Direct dependencies. Regenerate the hashed lock (requirements.txt) with:
+#   uv pip compile requirements.in --universal --python-version 3.11 --generate-hashes -o requirements.txt
+fastapi==0.162.0
+uvicorn==0.54.0
+SQLAlchemy==2.1.6
+pydantic==2.14.2
+pytest==9.2.0
+python-dotenv==1.2.4
+pydantic-settings==2.16.2
+openai==3.42.0
+qdrant-client>=1.20,<2
+pypdf>=6,<7
+python-docx>=1.2,<2
+python-multipart>=0.0.20,<1
